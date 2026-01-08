@@ -23,9 +23,7 @@ func main() {
 	}
 
 	log.Println("Starting Telegram bot...")
-	if err := telegramBot.Start(); err != nil {
-		log.Fatalf("Failed to start bot: %v", err)
-	}
+	telegramBot.Start()
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
@@ -35,4 +33,3 @@ func main() {
 	log.Println("Shutting down bot...")
 	telegramBot.Stop()
 }
-

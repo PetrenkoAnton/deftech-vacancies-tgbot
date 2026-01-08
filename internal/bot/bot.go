@@ -164,26 +164,49 @@ func (b *Bot) fetchJobTitlesFromPage(page int) ([]string, error) {
 // extractJobTitles recursively extracts job titles from HTML nodes
 func (b *Bot) extractJobTitles(n *html.Node, jobTitles *[]string) {
 	if n.Type == html.ElementNode {
-		// Look for h2, h3, h4, and h5 tags that contain job titles
-		if n.Data == "h2" || n.Data == "h3" || n.Data == "h4" || n.Data == "h5" {
-			// Extract text content
-			text := b.extractText(n)
-			text = strings.TrimSpace(text)
+		// Look for <a> tags with class "stretched-link tw-text-black"
+		if n.Data == "a" {
+			// Check if this link has the required class
+			hasRequiredClass := false
+			for _, attr := range n.Attr {
+				if attr.Key == "class" {
+					classes := strings.Fields(attr.Val)
+					hasStretchedLink := false
+					hasTwTextBlack := false
+					for _, class := range classes {
+						if class == "stretched-link" {
+							hasStretchedLink = true
+						}
+						if class == "tw-text-black" {
+							hasTwTextBlack = true
+						}
+					}
+					if hasStretchedLink && hasTwTextBlack {
+						hasRequiredClass = true
+						break
+					}
+				}
+			}
 
-			// Filter out non-job title headings
-			textLower := strings.ToLower(text)
-			if text != "" &&
-				len(text) > 3 &&
-				text != "Відкриті вакансії" &&
-				text != "Filter" &&
-				text != "SearchSearch" &&
-				text != "Powered by PeopleForce" &&
-				!strings.HasPrefix(textLower, "displaying") &&
-				!strings.Contains(textLower, "filter") &&
-				!strings.Contains(textLower, "search") &&
-				!strings.Contains(textLower, "powered by") &&
-				!strings.Contains(textLower, "in total") {
-				*jobTitles = append(*jobTitles, text)
+			if hasRequiredClass {
+				// Extract text content
+				text := b.extractText(n)
+				text = strings.TrimSpace(text)
+
+				// Only add if it's not empty
+				if text != "" {
+					// Check if we haven't already added this title
+					found := false
+					for _, existing := range *jobTitles {
+						if existing == text {
+							found = true
+							break
+						}
+					}
+					if !found {
+						*jobTitles = append(*jobTitles, text)
+					}
+				}
 			}
 		}
 	}
