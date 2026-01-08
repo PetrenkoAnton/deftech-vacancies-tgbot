@@ -6,10 +6,16 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/joho/godotenv"
 	"miltech-tgbot/internal/bot"
 )
 
 func main() {
+	// Load environment variables from .env file
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using system environment variables")
+	}
+
 	// Get bot token from environment variable
 	botToken := os.Getenv("BOT_TOKEN")
 	if botToken == "" {
