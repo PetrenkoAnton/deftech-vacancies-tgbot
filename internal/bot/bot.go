@@ -90,7 +90,7 @@ func (b *Bot) handleGetList(c telebot.Context) error {
 	}
 
 	// Format and send the list
-	message := "📋 *Available Job Positions:*\n\n"
+	message := "[peopleforce](https://dwarfengineering.peopleforce.io/careers)\n\n"
 	for i, title := range jobTitles {
 		message += fmt.Sprintf("%d. %s\n", i+1, title)
 	}
@@ -128,9 +128,6 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 // fetchJobTitlesFromPage fetches and parses job titles from a specific page
 func (b *Bot) fetchJobTitlesFromPage(page int) ([]string, error) {
 	url := fmt.Sprintf("https://dwarfengineering.peopleforce.io/careers?page=%d", page)
-	if page == 1 {
-		url = "https://dwarfengineering.peopleforce.io/careers"
-	}
 
 	// Create HTTP client with timeout
 	client := &http.Client{
@@ -251,7 +248,7 @@ func (b *Bot) handleGetListDOU(c telebot.Context) error {
 	}
 
 	// Format and send the list
-	message := "📋 *Available Job Positions (DOU.ua):*\n\n"
+	message := "[dou](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/)\n\n"
 	for i, title := range jobTitles {
 		message += fmt.Sprintf("%d. %s\n", i+1, title)
 	}
