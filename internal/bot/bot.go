@@ -274,10 +274,10 @@ func (b *Bot) handleStart(c telebot.Context) error {
 
 	startText := "Hello! Welcome to the bot.\n\nAvailable commands:\n" +
 		"/start - Start the bot\n" +
-		"/help - Show this help message\n" +
-		"/dwarf_engineering - Get Dwarf Engineering jobs from PeopleForce and DOU.ua\n" +
-		"/deftech_all - Get list from DefTech DOU.ua\n" +
-		"/deftech - Show visible DefTech jobs\n\n" +
+		"/help - Show this help message\n\n" +
+		"/dwarf_engineering - Get Dwarf Engineering jobs\n" +
+		"/deftech - Fetch and show visible DefTech jobs\n\n" +
+		"/deftech_all - Get list from DefTech DOU.ua\n\n" +
 		"/truncate - Truncate jobs table"
 	return c.Send(startText)
 }
@@ -295,7 +295,7 @@ func (b *Bot) handleHelp(c telebot.Context) error {
 		"/help - Show this help message\n" +
 		"/dwarf_engineering - Get Dwarf Engineering jobs from PeopleForce and DOU.ua\n" +
 		"/deftech_all - Get list from DefTech DOU.ua\n" +
-		"/deftech - Show visible DefTech jobs\n" +
+		"/deftech - Fetch and show visible DefTech jobs\n" +
 		"/truncate - Truncate jobs table"
 	return c.Send(helpText)
 }
@@ -453,6 +453,23 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	}
 
 	log.Printf("Command /deftech received from user %s", c.Sender().Username)
+	// Show loading message
+	c.Send("Fetching job listings from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
+
+	// Fetch job titles from the DefTech DOU.ua page
+	jobInfos, err := b.FetchJobTitlesFromDeftech()
+	if err != nil {
+		log.Printf("Error fetching job titles from DefTech: %v", err)
+		return c.Send(fmt.Sprintf("Error fetching job listings: %v", err))
+	}
+
+	// Save jobs to database if not exists
+	for _, jobInfo := range jobInfos {
+		err := b.saveJob(jobInfo.Title, jobInfo.URL)
+		if err != nil {
+			log.Printf("Error saving job to DB: %v", err)
+		}
+	}
 
 	// Get visible jobs from database
 	jobs, err := b.getVisibleJobs()
