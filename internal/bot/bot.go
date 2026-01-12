@@ -1,13 +1,15 @@
 package bot
 
 import (
-	"crypto/rand"
 	"database/sql"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -22,7 +24,9 @@ type Job struct {
 	Title     string    `json:"title"`
 	Source    string    `json:"source"`
 	URL       string    `json:"url"`
-	FetchedAt time.Time `json:"fetched_at"`
+	CompanyID int       `json:"company_id"`
+	IsIgnored bool      `json:"is_ignored"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // JobInfo represents job information with hot status
@@ -30,6 +34,7 @@ type JobInfo struct {
 	Title   string
 	Company string
 	IsHot   bool
+	URL     string
 }
 
 // DebugInfo represents debug information for links
@@ -69,9 +74,9 @@ func New(token string, adminID string) (*Bot, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// Create jobs table if it doesn't exist
-	if err := initDB(db); err != nil {
-		return nil, fmt.Errorf("failed to initialize database: %w", err)
+	// Run database migrations
+	if err := runMigrations(db); err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
 	bot := &Bot{
@@ -87,15 +92,6 @@ func New(token string, adminID string) (*Bot, error) {
 	return bot, nil
 }
 
-// generateRandomID generates a random integer ID
-func generateRandomID() int {
-	bytes := make([]byte, 4)
-	rand.Read(bytes)
-	// Convert first 4 bytes to uint32, then to int
-	id := int(bytes[0])<<24 | int(bytes[1])<<16 | int(bytes[2])<<8 | int(bytes[3])
-	return id
-}
-
 // isAdmin checks if the user is authorized to use the bot
 func (b *Bot) isAdmin(userID int64) bool {
 	if b.adminID == "" {
@@ -105,28 +101,41 @@ func (b *Bot) isAdmin(userID int64) bool {
 	return fmt.Sprintf("%d", userID) == b.adminID
 }
 
-// initDB initializes the database schema
-func initDB(db *sql.DB) error {
-	query := `
-	CREATE TABLE IF NOT EXISTS jobs (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		title TEXT NOT NULL,
-		source TEXT NOT NULL,
-		url TEXT,
-		fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE INDEX IF NOT EXISTS idx_jobs_source ON jobs(source);
-	CREATE INDEX IF NOT EXISTS idx_jobs_fetched_at ON jobs(fetched_at);
-	`
-	_, err := db.Exec(query)
-	return err
+// runMigrations runs database migrations
+func runMigrations(db *sql.DB) error {
+	files, err := filepath.Glob("migrations/*.sql")
+	if err != nil {
+		return err
+	}
+	sort.Strings(files)
+	for _, file := range files {
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return err
+		}
+		_, err = db.Exec(string(content))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // saveJob saves a job to the database
 func (b *Bot) saveJob(title, source, url string) error {
-	query := `INSERT INTO jobs (title, source, url, fetched_at) VALUES (?, ?, ?, ?)`
+	if b.jobExists(title, source) {
+		return nil // already exists
+	}
+	query := `INSERT INTO jobs (title, source, url, company_id, created_at) VALUES (?, ?, ?, NULL, ?)`
 	_, err := b.db.Exec(query, title, source, url, time.Now())
 	return err
+}
+
+// jobExists checks if a job with the given title and source already exists
+func (b *Bot) jobExists(title, source string) bool {
+	var count int
+	err := b.db.QueryRow("SELECT COUNT(*) FROM jobs WHERE title = ? AND source = ?", title, source).Scan(&count)
+	return err == nil && count > 0
 }
 
 // getJobs retrieves jobs from the database
@@ -135,10 +144,10 @@ func (b *Bot) getJobs(source string) ([]Job, error) {
 	var args []interface{}
 
 	if source != "" {
-		query = `SELECT id, title, source, url, fetched_at FROM jobs WHERE source = ? ORDER BY fetched_at DESC`
+		query = `SELECT id, title, source, url, company_id, created_at, is_ignored FROM jobs WHERE source = ? ORDER BY created_at DESC`
 		args = []interface{}{source}
 	} else {
-		query = `SELECT id, title, source, url, fetched_at FROM jobs ORDER BY fetched_at DESC`
+		query = `SELECT id, title, source, url, company_id, created_at, is_ignored FROM jobs ORDER BY created_at DESC`
 	}
 
 	rows, err := b.db.Query(query, args...)
@@ -150,7 +159,7 @@ func (b *Bot) getJobs(source string) ([]Job, error) {
 	var jobs []Job
 	for rows.Next() {
 		var job Job
-		err := rows.Scan(&job.ID, &job.Title, &job.Source, &job.URL, &job.FetchedAt)
+		err := rows.Scan(&job.ID, &job.Title, &job.Source, &job.URL, &job.CompanyID, &job.CreatedAt, &job.IsIgnored)
 		if err != nil {
 			return nil, err
 		}
@@ -174,9 +183,6 @@ func (b *Bot) registerHandlers() {
 	// Get list DefTech command handler
 	b.telebot.Handle("/list_deftech", b.handleGetListDeftech)
 
-	// Ignore command handler
-	b.telebot.Handle("/ignore", b.handleIgnore)
-
 	// Inline button callback handler
 	b.telebot.Handle(telebot.OnCallback, b.handleCallback)
 
@@ -192,16 +198,6 @@ func (b *Bot) handleStart(c telebot.Context) error {
 	}
 
 	log.Printf("Command /start received from user %s", c.Sender().Username)
-
-	// Check if this is an ignore command via deep link
-	payload := strings.TrimSpace(c.Message().Payload)
-	if strings.HasPrefix(payload, "ignore_") {
-		idStr := strings.TrimPrefix(payload, "ignore_")
-		log.Printf("Ignore command via deep link from user %s with ID: %s", c.Sender().Username, idStr)
-		// Show the command that was "executed"
-		c.Send(fmt.Sprintf("You executed: /ignore %s", idStr))
-		return b.processIgnore(c, idStr)
-	}
 
 	startText := "Hello! Welcome to the bot.\n\nAvailable commands:\n" +
 		"/start - Start the bot\n" +
@@ -336,6 +332,14 @@ func (b *Bot) handleGetListDeftech(c telebot.Context) error {
 		return c.Send(fmt.Sprintf("Error fetching job listings: %v", err))
 	}
 
+	// Save jobs to database if not exists
+	for _, jobInfo := range jobInfos {
+		err := b.saveJob(jobInfo.Title, "deftech", jobInfo.URL)
+		if err != nil {
+			log.Printf("Error saving job to DB: %v", err)
+		}
+	}
+
 	if len(jobInfos) == 0 {
 		return c.Send("No job listings found.")
 	}
@@ -343,15 +347,14 @@ func (b *Bot) handleGetListDeftech(c telebot.Context) error {
 	// Format and send the list
 	var message strings.Builder
 	for i, jobInfo := range jobInfos {
-		randomID := generateRandomID()
 		hotMarker := ""
 		if jobInfo.IsHot {
 			hotMarker = "🔥 "
 		}
 		if jobInfo.Company != "" {
-			message.WriteString(fmt.Sprintf("%d. %s%s (%s) [/ignore %d](https://t.me/%s?start=ignore_%d)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company, randomID, c.Bot().Me.Username, randomID))
+			message.WriteString(fmt.Sprintf("%d. %s%s (%s)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company))
 		} else {
-			message.WriteString(fmt.Sprintf("%d. %s%s [/ignore %d](https://t.me/%s?start=ignore_%d)\n", i+1, hotMarker, jobInfo.Title, randomID, c.Bot().Me.Username, randomID))
+			message.WriteString(fmt.Sprintf("%d. %s%s\n", i+1, hotMarker, jobInfo.Title))
 		}
 	}
 
@@ -400,8 +403,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	if len(peopleforceTitles) > 0 {
 		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
 		for i, title := range peopleforceTitles {
-			randomID := generateRandomID()
-			message.WriteString(fmt.Sprintf("%d. %s [/ignore %d](https://t.me/%s?start=ignore_%d)\n", i+1, title, randomID, c.Bot().Me.Username, randomID))
+			message.WriteString(fmt.Sprintf("%d. %s\n", i+1, title))
 		}
 		message.WriteString("\n")
 	}
@@ -409,8 +411,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	if len(douTitles) > 0 {
 		message.WriteString("**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n")
 		for i, title := range douTitles {
-			randomID := generateRandomID()
-			message.WriteString(fmt.Sprintf("%d. %s [/ignore %d](https://t.me/%s?start=ignore_%d)\n", i+1, title, randomID, c.Bot().Me.Username, randomID))
+			message.WriteString(fmt.Sprintf("%d. %s\n", i+1, title))
 		}
 	}
 
@@ -570,7 +571,7 @@ func findJobTitlesDeftech(n *html.Node) []JobInfo {
 			parts := strings.Split(link.url, "/vacancies/")
 			if len(parts) > 1 && len(parts[1]) > 0 && (parts[1][0] >= '0' && parts[1][0] <= '9') {
 				isHot := strings.Contains(link.url, "?from=list_hot")
-				jobInfo := JobInfo{Title: link.text, IsHot: isHot}
+				jobInfo := JobInfo{Title: link.text, IsHot: isHot, URL: link.url}
 
 				// Look for the next company link
 				for j := i + 1; j < len(allLinks) && j < i+3; j++ { // Look up to 2 links ahead
@@ -655,26 +656,6 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 
 	// For now, just acknowledge the callback without functionality
 	return c.Respond(&telebot.CallbackResponse{Text: "Ignore functionality not implemented yet"})
-}
-
-// processIgnore processes an ignore request with the given ID
-func (b *Bot) processIgnore(c telebot.Context, idStr string) error {
-	log.Printf("Processing ignore request from user %s with ID: %s", c.Sender().Username, idStr)
-	// For now, just acknowledge the command without functionality
-	return c.Send(fmt.Sprintf("Ignore functionality not implemented yet. ID: %s", idStr))
-}
-
-// handleIgnore handles the /ignore command
-func (b *Bot) handleIgnore(c telebot.Context) error {
-	if !b.isAdmin(c.Sender().ID) {
-		log.Printf("Unauthorized ignore command from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
-		return c.Send("Sorry, you are not authorized to use this bot.")
-	}
-
-	args := strings.TrimSpace(c.Message().Payload)
-	log.Printf("Command /ignore received from user %s with args: %s", c.Sender().Username, args)
-
-	return b.processIgnore(c, args)
 }
 
 // Start starts the bot
