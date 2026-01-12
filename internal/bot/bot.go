@@ -152,11 +152,13 @@ func (b *Bot) registerHandlers() {
 
 // handleStart handles the /start command
 func (b *Bot) handleStart(c telebot.Context) error {
+	log.Printf("Command /start received from user %s", c.Sender().Username)
 	return c.Send("Hello! Welcome to the bot. Use /help to see available commands.")
 }
 
 // handleHelp handles the /help command
 func (b *Bot) handleHelp(c telebot.Context) error {
+	log.Printf("Command /help received from user %s", c.Sender().Username)
 	helpText := "Available commands:\n" +
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n" +
@@ -312,8 +314,9 @@ func (b *Bot) handleGetListDOU(c telebot.Context) error {
 
 // handleGetListDeftech handles the /list_deftech command
 func (b *Bot) handleGetListDeftech(c telebot.Context) error {
+	log.Printf("Command /list_deftech received from user %s", c.Sender().Username)
 	// Show loading message
-	c.Send("Fetching job listings from [deftech.dou.ua](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2)...")
+	c.Send("Fetching job listings from https://deftech.dou.ua/jobs/?city=Київ ...")
 
 	// Fetch job titles from the DefTech DOU.ua page
 	jobInfos, err := FetchJobTitlesFromDeftech()
@@ -345,6 +348,7 @@ func (b *Bot) handleGetListDeftech(c telebot.Context) error {
 
 // handleGetDwarfEngineering handles the /dwarf_engineering command
 func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
+	log.Printf("Command /dwarf_engineering received from user %s", c.Sender().Username)
 	// Show loading message
 	c.Send("Fetching Dwarf Engineering job listings...")
 
@@ -620,6 +624,7 @@ func collectText(n *html.Node, text *strings.Builder) {
 
 // handleText handles text messages
 func (b *Bot) handleText(c telebot.Context) error {
+	log.Printf("Text message received from user %s: %s", c.Sender().Username, c.Text())
 	// Echo the message back
 	return c.Send("You said: " + c.Text())
 }
