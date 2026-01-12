@@ -22,7 +22,6 @@ import (
 type Job struct {
 	ID        int       `json:"id"`
 	Title     string    `json:"title"`
-	Source    string    `json:"source"`
 	URL       string    `json:"url"`
 	CompanyID int       `json:"company_id"`
 	IsIgnored bool      `json:"is_ignored"`
@@ -122,35 +121,27 @@ func runMigrations(db *sql.DB) error {
 }
 
 // saveJob saves a job to the database
-func (b *Bot) saveJob(title, source, url string) error {
-	if b.jobExists(title, source) {
+func (b *Bot) saveJob(title, url string) error {
+	if b.jobExists(title) {
 		return nil // already exists
 	}
-	query := `INSERT INTO jobs (title, source, url, company_id, created_at) VALUES (?, ?, ?, NULL, ?)`
-	_, err := b.db.Exec(query, title, source, url, time.Now())
+	query := `INSERT INTO jobs (title, url, company_id, created_at, is_ignored) VALUES (?, ?, NULL, ?, FALSE)`
+	_, err := b.db.Exec(query, title, url, time.Now())
 	return err
 }
 
-// jobExists checks if a job with the given title and source already exists
-func (b *Bot) jobExists(title, source string) bool {
+// jobExists checks if a job with the given title already exists
+func (b *Bot) jobExists(title string) bool {
 	var count int
-	err := b.db.QueryRow("SELECT COUNT(*) FROM jobs WHERE title = ? AND source = ?", title, source).Scan(&count)
+	err := b.db.QueryRow("SELECT COUNT(*) FROM jobs WHERE title = ?", title).Scan(&count)
 	return err == nil && count > 0
 }
 
 // getJobs retrieves jobs from the database
-func (b *Bot) getJobs(source string) ([]Job, error) {
-	var query string
-	var args []interface{}
+func (b *Bot) getJobs() ([]Job, error) {
+	query := `SELECT id, title, url, company_id, created_at, is_ignored FROM jobs ORDER BY created_at DESC`
 
-	if source != "" {
-		query = `SELECT id, title, source, url, company_id, created_at, is_ignored FROM jobs WHERE source = ? ORDER BY created_at DESC`
-		args = []interface{}{source}
-	} else {
-		query = `SELECT id, title, source, url, company_id, created_at, is_ignored FROM jobs ORDER BY created_at DESC`
-	}
-
-	rows, err := b.db.Query(query, args...)
+	rows, err := b.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +150,7 @@ func (b *Bot) getJobs(source string) ([]Job, error) {
 	var jobs []Job
 	for rows.Next() {
 		var job Job
-		err := rows.Scan(&job.ID, &job.Title, &job.Source, &job.URL, &job.CompanyID, &job.CreatedAt, &job.IsIgnored)
+		err := rows.Scan(&job.ID, &job.Title, &job.URL, &job.CompanyID, &job.CreatedAt, &job.IsIgnored)
 		if err != nil {
 			return nil, err
 		}
@@ -245,7 +236,7 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 				allJobTitles = append(allJobTitles, title)
 				// Save to database
 				url := fmt.Sprintf("https://dwarfengineering.peopleforce.io/careers?page=%d", page)
-				if err := b.saveJob(title, "peopleforce", url); err != nil {
+				if err := b.saveJob(title, url); err != nil {
 					log.Printf("Error saving job to DB: %v", err)
 				}
 			}
@@ -334,7 +325,7 @@ func (b *Bot) handleGetListDeftech(c telebot.Context) error {
 
 	// Save jobs to database if not exists
 	for _, jobInfo := range jobInfos {
-		err := b.saveJob(jobInfo.Title, "deftech", jobInfo.URL)
+		err := b.saveJob(jobInfo.Title, jobInfo.URL)
 		if err != nil {
 			log.Printf("Error saving job to DB: %v", err)
 		}
@@ -473,7 +464,7 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 			if title != "" {
 				jobTitles = append(jobTitles, title)
 				// Save to database
-				if err := b.saveJob(title, "dou", item.Link); err != nil {
+				if err := b.saveJob(title, item.Link); err != nil {
 					log.Printf("Error saving job to DB: %v", err)
 				}
 			}
