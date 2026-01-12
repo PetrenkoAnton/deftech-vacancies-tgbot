@@ -6,8 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/joho/godotenv"
 	"miltech-tgbot/internal/bot"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
