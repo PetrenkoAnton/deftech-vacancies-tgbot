@@ -1,13 +1,24 @@
 # Miltech Telegram Bot
 
-A Telegram bot that fetches job listings from Dwarf Engineering and DefTech career pages.
+A Telegram bot that fetches and manages job listings from Dwarf Engineering and DefTech career pages.
 
 ## Features
 
-- `/dwarf_engineering` - Get jobs from PeopleForce and DOU.ua
-- `/list_deftech` - Get jobs from DefTech DOU.ua
-- SQLite database for job persistence
-- Admin-only access control
+- **Job Sources**:
+  - Dwarf Engineering (PeopleForce + DOU.ua RSS)
+  - DefTech (DOU.ua)
+
+- **Commands**:
+  - `/dwarf_engineering` - Get Dwarf Engineering jobs (simple list)
+  - `/deftech_all` - Get all DefTech jobs with hide/show controls
+  - `/deftech` - Get visible DefTech jobs only
+  - `/truncate` - Clear all jobs from database
+
+- **Database Features**:
+  - SQLite database with migrations
+  - Job persistence and deduplication
+  - Hide/show functionality for DefTech jobs
+  - Admin-only access control
 
 ## Prerequisites
 
@@ -37,19 +48,28 @@ go build -o bin/miltech-tgbot .
 ./bin/miltech-tgbot
 ```
 
-Commands:
-- `/start` - Welcome and command list
-- `/help` - Show commands
-- `/dwarf_engineering` - Dwarf Engineering jobs
-- `/list_deftech` - DefTech jobs
+### Commands
+
+- `/start` - Welcome message and command overview
+- `/help` - Show available commands
+- `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + DOU.ua)
+- `/deftech_all` - Fetch all DefTech jobs with interactive hide/show links
+- `/deftech` - Show only visible (non-hidden) DefTech jobs
+- `/truncate` - Clear all jobs from database (admin only)
+
+### Hide/Show Functionality
+
+DefTech commands (`/deftech_all`, `/deftech`) include interactive links to hide or show individual jobs. Click the links to toggle job visibility. Hidden jobs won't appear in `/deftech` command results.
 
 ## Project Structure
 
 ```
 miltech-tgbot/
-├── internal/bot/bot.go    # Bot logic and handlers
-├── main.go               # Entry point
-├── go.mod                # Dependencies
-├── .env                  # Configuration
-└── jobs.db               # SQLite database
+├── internal/bot/bot.go    # Bot logic, handlers, and database operations
+├── migrations/           # Database schema migrations
+├── main.go              # Application entry point
+├── go.mod               # Go module dependencies
+├── .env                 # Environment configuration
+├── jobs.db              # SQLite database (auto-created)
+└── bin/                 # Compiled binaries
 ```
