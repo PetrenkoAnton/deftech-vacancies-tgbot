@@ -421,11 +421,8 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 		return c.Send("No job listings found.")
 	}
 
-	// Format and send the list as a monospace table
+	// Format and send the list as a simple numbered list
 	var message strings.Builder
-	message.WriteString("```\n")
-	message.WriteString(" # | Job Title                  | Company          | Action\n")
-	message.WriteString("---|-----------------------------|------------------|--------\n")
 
 	for i, jobInfo := range jobInfos {
 		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
@@ -443,17 +440,8 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 		if company == "" {
 			company = "-"
 		}
-		// Truncate title and company if too long for table
-		title := jobInfo.Title
-		if len(title) > 27 {
-			title = title[:24] + "..."
-		}
-		if len(company) > 16 {
-			company = company[:13] + "..."
-		}
-		message.WriteString(fmt.Sprintf(" %d | %-27s | %-16s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, title, company, action, c.Bot().Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. %s (%s) [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, company, action, c.Bot().Me.Username, prefix, id))
 	}
-	message.WriteString("```\n")
 
 	return c.Send(message.String(), telebot.ModeMarkdown)
 }
@@ -501,11 +489,8 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 		return c.Send("No visible job listings found.")
 	}
 
-	// Format and send the list as a monospace table
+	// Format and send the list as a simple numbered list
 	var message strings.Builder
-	message.WriteString("```\n")
-	message.WriteString(" # | Job Title                  | Company          | Action\n")
-	message.WriteString("---|-----------------------------|------------------|--------\n")
 
 	for i, jobInfo := range visibleJobInfos {
 		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
@@ -523,17 +508,8 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 		if company == "" {
 			company = "-"
 		}
-		// Truncate title and company if too long for table
-		title := jobInfo.Title
-		if len(title) > 27 {
-			title = title[:24] + "..."
-		}
-		if len(company) > 16 {
-			company = company[:13] + "..."
-		}
-		message.WriteString(fmt.Sprintf(" %d | %-27s | %-16s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, title, company, action, c.Bot().Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. %s (%s) [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, company, action, c.Bot().Me.Username, prefix, id))
 	}
-	message.WriteString("```\n")
 
 	return c.Send(message.String(), telebot.ModeMarkdown)
 }
@@ -579,56 +555,17 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 
 	if len(peopleforceTitles) > 0 {
 		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
-		message.WriteString("```\n")
-		message.WriteString(" # | Job Title                  | Action\n")
-		message.WriteString("---|-----------------------------|--------\n")
 		for i, title := range peopleforceTitles {
-			id, hidden, err := b.getJobIDAndHiddenByTitle(title)
-			if err != nil {
-				log.Printf("Error getting job ID for %s: %v", title, err)
-				continue
-			}
-			action := "hide"
-			prefix := "ignore"
-			if hidden {
-				action = "show"
-				prefix = "unignore"
-			}
-			// Truncate title if too long
-			jobTitle := title
-			if len(jobTitle) > 27 {
-				jobTitle = jobTitle[:24] + "..."
-			}
-			message.WriteString(fmt.Sprintf(" %d | %-27s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobTitle, action, c.Bot().Me.Username, prefix, id))
+			message.WriteString(fmt.Sprintf("%d. %s\n", i+1, title))
 		}
-		message.WriteString("```\n\n")
+		message.WriteString("\n")
 	}
 
 	if len(douTitles) > 0 {
 		message.WriteString("**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n")
-		message.WriteString("```\n")
-		message.WriteString(" # | Job Title                  | Action\n")
-		message.WriteString("---|-----------------------------|--------\n")
 		for i, title := range douTitles {
-			id, hidden, err := b.getJobIDAndHiddenByTitle(title)
-			if err != nil {
-				log.Printf("Error getting job ID for %s: %v", title, err)
-				continue
-			}
-			action := "hide"
-			prefix := "ignore"
-			if hidden {
-				action = "show"
-				prefix = "unignore"
-			}
-			// Truncate title if too long
-			jobTitle := title
-			if len(jobTitle) > 27 {
-				jobTitle = jobTitle[:24] + "..."
-			}
-			message.WriteString(fmt.Sprintf(" %d | %-27s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobTitle, action, c.Bot().Me.Username, prefix, id))
+			message.WriteString(fmt.Sprintf("%d. %s\n", i+1, title))
 		}
-		message.WriteString("```\n")
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
