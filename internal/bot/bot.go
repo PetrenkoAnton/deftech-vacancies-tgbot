@@ -248,10 +248,10 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		}
 		err = b.setJobHidden(id, true)
 		if err != nil {
-			log.Printf("Error ignoring job %d: %v", id, err)
-			return c.Send("Error ignoring job")
+			log.Printf("Error hiding job %d: %v", id, err)
+			return c.Send("Error hiding job")
 		}
-		return c.Send(fmt.Sprintf("%s is ignored", title))
+		return c.Send(fmt.Sprintf("%s is hidden", title))
 	}
 	if strings.HasPrefix(payload, "unignore_") {
 		idStr := strings.TrimPrefix(payload, "unignore_")
@@ -262,12 +262,12 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		title, err := b.getJobTitleByID(id)
 		if err != nil {
 			log.Printf("Error getting title for job %d: %v", id, err)
-			return c.Send("Error unignoring job")
+			return c.Send("Error showing job")
 		}
 		err = b.setJobHidden(id, false)
 		if err != nil {
-			log.Printf("Error unignoring job %d: %v", id, err)
-			return c.Send("Error unignoring job")
+			log.Printf("Error showing job %d: %v", id, err)
+			return c.Send("Error showing job")
 		}
 		return c.Send(fmt.Sprintf("%s is shown", title))
 	}
