@@ -153,7 +153,7 @@ func (b *Bot) getJobTitleByID(id int) (string, error) {
 
 // getJobs retrieves jobs from the database
 func (b *Bot) getJobs() ([]Job, error) {
-	query := `SELECT id, title, url, created_at, is_hidden FROM jobs ORDER BY created_at DESC`
+	query := `SELECT id, title, url, created_at, is_hidden FROM jobs ORDER BY created_at ASC`
 
 	rows, err := b.db.Query(query)
 	if err != nil {
@@ -176,7 +176,7 @@ func (b *Bot) getJobs() ([]Job, error) {
 
 // getVisibleJobs retrieves all non-hidden jobs from the database
 func (b *Bot) getVisibleJobs() ([]Job, error) {
-	query := `SELECT id, title, url, created_at, is_hidden FROM jobs WHERE is_hidden = FALSE ORDER BY created_at DESC`
+	query := `SELECT id, title, url, created_at, is_hidden FROM jobs WHERE is_hidden = FALSE ORDER BY created_at ASC`
 
 	rows, err := b.db.Query(query)
 	if err != nil {
@@ -471,23 +471,42 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 		}
 	}
 
-	// Get visible jobs from database
-	jobs, err := b.getVisibleJobs()
-	if err != nil {
-		log.Printf("Error getting visible jobs: %v", err)
-		return c.Send(fmt.Sprintf("Error fetching job listings: %v", err))
+	// Filter jobInfos to only show visible jobs
+	var visibleJobInfos []JobInfo
+	for _, jobInfo := range jobInfos {
+		_, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
+		if err != nil {
+			// If job doesn't exist in DB yet (just saved), it's visible by default
+			visibleJobInfos = append(visibleJobInfos, jobInfo)
+		} else if !hidden {
+			// Job exists and is not hidden
+			visibleJobInfos = append(visibleJobInfos, jobInfo)
+		}
 	}
 
-	if len(jobs) == 0 {
+	if len(visibleJobInfos) == 0 {
 		return c.Send("No visible job listings found.")
 	}
 
 	// Format and send the list
 	var message strings.Builder
-	for i, job := range jobs {
+	for i, jobInfo := range visibleJobInfos {
+		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
+		if err != nil {
+			log.Printf("Error getting job ID for %s: %v", jobInfo.Title, err)
+			continue
+		}
 		action := "Hide"
 		prefix := "ignore"
-		message.WriteString(fmt.Sprintf("%d. %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, job.Title, action, c.Bot().Me.Username, prefix, job.ID))
+		if hidden {
+			action = "Show"
+			prefix = "unignore"
+		}
+		if jobInfo.Company != "" {
+			message.WriteString(fmt.Sprintf("%d. %s (%s) [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.Company, action, c.Bot().Me.Username, prefix, id))
+		} else {
+			message.WriteString(fmt.Sprintf("%d. %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, action, c.Bot().Me.Username, prefix, id))
+		}
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown)
