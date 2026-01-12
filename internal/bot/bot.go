@@ -39,8 +39,9 @@ type DebugInfo struct {
 
 // Bot represents the Telegram bot instance
 type Bot struct {
-	telebot *telebot.Bot
-	db      *sql.DB
+	telebot    *telebot.Bot
+	db         *sql.DB
+	httpClient *http.Client
 }
 
 // New creates a new bot instance
@@ -55,6 +56,11 @@ func New(token string) (*Bot, error) {
 		return nil, err
 	}
 
+	// Initialize HTTP client
+	httpClient := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
 	// Initialize database
 	db, err := sql.Open("sqlite3", "./jobs.db")
 	if err != nil {
@@ -67,8 +73,9 @@ func New(token string) (*Bot, error) {
 	}
 
 	bot := &Bot{
-		telebot: b,
-		db:      db,
+		telebot:    b,
+		db:         db,
+		httpClient: httpClient,
 	}
 
 	// Register handlers
@@ -167,31 +174,6 @@ func (b *Bot) handleHelp(c telebot.Context) error {
 	return c.Send(helpText)
 }
 
-// handleGetList handles the /list command
-func (b *Bot) handleGetList(c telebot.Context) error {
-	// Show loading message
-	c.Send("Fetching job listings...")
-
-	// Fetch job titles from the careers page
-	jobTitles, err := b.fetchJobTitles()
-	if err != nil {
-		log.Printf("Error fetching job titles: %v", err)
-		return c.Send(fmt.Sprintf("Error fetching job listings: %v", err))
-	}
-
-	if len(jobTitles) == 0 {
-		return c.Send("No job listings found.")
-	}
-
-	// Format and send the list
-	message := "[peopleforce](https://dwarfengineering.peopleforce.io/careers)\n\n"
-	for i, title := range jobTitles {
-		message += fmt.Sprintf("%d. %s\n", i+1, title)
-	}
-
-	return c.Send(message, telebot.ModeMarkdown, telebot.NoPreview)
-}
-
 // fetchJobTitles fetches and parses job titles from all careers pages
 func (b *Bot) fetchJobTitles() ([]string, error) {
 	var allJobTitles []string
@@ -228,11 +210,7 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 func (b *Bot) fetchJobTitlesFromPage(page int) ([]string, error) {
 	url := fmt.Sprintf("https://dwarfengineering.peopleforce.io/careers?page=%d", page)
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Get(url)
+	resp, err := b.httpClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch page: %w", err)
 	}
@@ -287,39 +265,14 @@ func (b *Bot) findJobTitles(n *html.Node) []string {
 	return titles
 }
 
-// handleGetListDOU handles the /list_dou command
-func (b *Bot) handleGetListDOU(c telebot.Context) error {
-	// Show loading message
-	c.Send("Fetching job listings from DOU.ua...")
-
-	// Fetch job titles from the DOU.ua page
-	jobTitles, err := b.fetchJobTitlesFromDOU()
-	if err != nil {
-		log.Printf("Error fetching job titles from DOU: %v", err)
-		return c.Send(fmt.Sprintf("Error fetching job listings: %v", err))
-	}
-
-	if len(jobTitles) == 0 {
-		return c.Send("No job listings found.")
-	}
-
-	// Format and send the list
-	message := "[dou](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/)\n\n"
-	for i, title := range jobTitles {
-		message += fmt.Sprintf("%d. %s\n", i+1, title)
-	}
-
-	return c.Send(message, telebot.ModeMarkdown)
-}
-
 // handleGetListDeftech handles the /list_deftech command
 func (b *Bot) handleGetListDeftech(c telebot.Context) error {
 	log.Printf("Command /list_deftech received from user %s", c.Sender().Username)
 	// Show loading message
-	c.Send("Fetching job listings from https://deftech.dou.ua/jobs/?city=Київ ...")
+	c.Send("Fetching job listings from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
 
 	// Fetch job titles from the DefTech DOU.ua page
-	jobInfos, err := FetchJobTitlesFromDeftech()
+	jobInfos, err := b.FetchJobTitlesFromDeftech()
 	if err != nil {
 		log.Printf("Error fetching job titles from DefTech: %v", err)
 		return c.Send(fmt.Sprintf("Error fetching job listings: %v", err))
@@ -330,20 +283,20 @@ func (b *Bot) handleGetListDeftech(c telebot.Context) error {
 	}
 
 	// Format and send the list
-	var message string
+	var message strings.Builder
 	for i, jobInfo := range jobInfos {
 		hotMarker := ""
 		if jobInfo.IsHot {
 			hotMarker = "🔥 "
 		}
 		if jobInfo.Company != "" {
-			message += fmt.Sprintf("%d. %s%s (%s)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company)
+			message.WriteString(fmt.Sprintf("%d. %s%s (%s)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company))
 		} else {
-			message += fmt.Sprintf("%d. %s%s\n", i+1, hotMarker, jobInfo.Title)
+			message.WriteString(fmt.Sprintf("%d. %s%s\n", i+1, hotMarker, jobInfo.Title))
 		}
 	}
 
-	return c.Send(message, telebot.ModeMarkdown)
+	return c.Send(message.String(), telebot.ModeMarkdown)
 }
 
 // handleGetDwarfEngineering handles the /dwarf_engineering command
@@ -378,24 +331,24 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	}
 
 	// Format and send the list
-	var message string
+	var message strings.Builder
 
 	if len(peopleforceTitles) > 0 {
-		message += "**[dwarfengineering.peopleforce.io/careerseforce](https://dwarfengineering.peopleforce.io/careers):**\n"
+		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
 		for i, title := range peopleforceTitles {
-			message += fmt.Sprintf("%d. %s\n", i+1, title)
+			message.WriteString(fmt.Sprintf("%d. %s\n", i+1, title))
 		}
-		message += "\n"
+		message.WriteString("\n")
 	}
 
 	if len(douTitles) > 0 {
-		message += "**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n"
+		message.WriteString("**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n")
 		for i, title := range douTitles {
-			message += fmt.Sprintf("%d. %s\n", i+1, title)
+			message.WriteString(fmt.Sprintf("%d. %s\n", i+1, title))
 		}
 	}
 
-	return c.Send(message, telebot.ModeMarkdown, telebot.NoPreview)
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
 }
 
 // RSSFeed represents the RSS feed structure
@@ -416,13 +369,8 @@ type RSSItem struct {
 func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 	url := "https://jobs.dou.ua/vacancies/dwarf-engineering/feeds/"
 
-	// Create HTTP client with timeout
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
 	// Fetch the RSS feed
-	resp, err := client.Get(url)
+	resp, err := b.httpClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch RSS feed: %w", err)
 	}
@@ -496,14 +444,10 @@ func FetchJobTitlesFromDeftechDebug() ([]DebugInfo, error) {
 }
 
 // FetchJobTitlesFromDeftech fetches and parses job titles from DefTech DOU.ua page
-func FetchJobTitlesFromDeftech() ([]JobInfo, error) {
+func (b *Bot) FetchJobTitlesFromDeftech() ([]JobInfo, error) {
 	url := "https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2"
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Get(url)
+	resp, err := b.httpClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch page: %w", err)
 	}

@@ -43,4 +43,3 @@ func main() {
 	log.Println("Shutting down bot...")
 	telegramBot.Stop()
 }
-
