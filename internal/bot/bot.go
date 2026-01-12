@@ -176,7 +176,12 @@ func (b *Bot) handleStart(c telebot.Context) error {
 	}
 
 	log.Printf("Command /start received from user %s", c.Sender().Username)
-	return c.Send("Hello! Welcome to the bot. Use /help to see available commands.")
+	startText := "Hello! Welcome to the bot.\n\nAvailable commands:\n" +
+		"/start - Start the bot\n" +
+		"/help - Show this help message\n" +
+		"/dwarf_engineering - Get Dwarf Engineering jobs from PeopleForce and DOU.ua\n" +
+		"/list_deftech - Get list from DefTech DOU.ua"
+	return c.Send(startText)
 }
 
 // handleHelp handles the /help command
