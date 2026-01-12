@@ -1,14 +1,16 @@
 # Miltech Telegram Bot
 
-A Telegram bot that fetches and displays job listings from Dwarf Engineering's career pages on PeopleForce and DOU.ua.
+A Telegram bot that fetches and displays job listings from Dwarf Engineering's career pages on PeopleForce and DOU.ua, as well as DefTech job listings.
 
 ## Features
 
-- 📋 `/list` - Fetches job titles from PeopleForce careers pages (pages 1 and 2)
-- 📋 `/list_dou` - Fetches job titles from DOU.ua RSS feed
-- 🎯 Real-time job listings
-- 🔄 Automatic updates from multiple sources
+- 🏭 `/dwarf_engineering` - Fetches job titles from Dwarf Engineering (PeopleForce + DOU.ua)
+- 🏢 `/list_deftech` - Fetches job titles from DefTech DOU.ua
+- 🎯 Real-time job listings from multiple sources
+- 🔄 Automatic updates and duplicate removal
 - 💬 User-friendly command interface
+- ⚡ Optimized performance with shared HTTP client
+- 💾 SQLite database for job persistence
 
 ## Prerequisites
 
@@ -66,35 +68,25 @@ Or run directly:
 go run main.go
 ```
 
-Alternatively, you can use the `cmd` directory version:
-
-```bash
-go run cmd/main.go
-```
-
 ### Commands
 
 - `/start` - Start the bot and see welcome message
 - `/help` - Show available commands
-- `/list` - Get job listings from PeopleForce
-- `/list_dou` - Get job listings from DOU.ua
+- `/dwarf_engineering` - Get Dwarf Engineering jobs from PeopleForce and DOU.ua
+- `/list_deftech` - Get job listings from DefTech DOU.ua
 
 ## Project Structure
 
 ```
 miltech-tgbot/
-├── cmd/
-│   └── main.go          # Alternative entry point
 ├── internal/
 │   └── bot/
-│       └── bot.go       # Bot implementation and handlers
-├── pkg/
-│   └── utils/
-│       └── utils.go     # Utility functions
+│       └── bot.go       # Bot implementation, handlers, and job fetching logic
 ├── bin/                 # Compiled binaries
 ├── main.go              # Main entry point
 ├── go.mod               # Go module file
 ├── go.sum               # Go checksums
+├── jobs.db              # SQLite database (created automatically)
 ├── .env.example         # Environment variables template
 ├── .gitignore           # Git ignore rules
 └── README.md            # This file
@@ -104,24 +96,60 @@ miltech-tgbot/
 
 - [gopkg.in/telebot.v3](https://github.com/tucnak/telebot) - Telegram bot framework
 - [github.com/joho/godotenv](https://github.com/joho/godotenv) - Environment variable management
+- [github.com/mattn/go-sqlite3](https://github.com/mattn/go-sqlite3) - SQLite database driver
 - [golang.org/x/net](https://golang.org/x/net) - HTML and XML parsing
+
+## Recent Improvements
+
+### v1.1.0 - Performance Optimizations (January 2026)
+
+- **Shared HTTP Client**: Implemented single HTTP client instance to reduce connection overhead
+- **Code Cleanup**: Removed unused handler functions and improved code maintainability
+- **String Building Optimization**: Replaced string concatenation with `strings.Builder` for better performance
+- **Database Integration**: Added SQLite persistence for job listings with automatic table creation
+- **Enhanced Error Handling**: Improved error messages and logging throughout the application
+- **DefTech Support**: Added support for fetching jobs from DefTech DOU.ua platform
 
 ## How It Works
 
-### PeopleForce Integration (`/list`)
+### Dwarf Engineering Integration (`/dwarf_engineering`)
 
-The bot fetches job listings from:
+The bot fetches job listings from multiple sources:
+
+**PeopleForce:**
 - https://dwarfengineering.peopleforce.io/careers (page 1)
 - https://dwarfengineering.peopleforce.io/careers?page=2 (page 2)
 
-It extracts job titles from `<a>` tags with class `stretched-link tw-text-black` and combines results from both pages, removing duplicates.
+It extracts job titles from `<h4>` elements containing `<a>` tags and combines results from both pages, removing duplicates.
 
-### DOU.ua Integration (`/list_dou`)
-
-The bot fetches job listings from the RSS feed:
+**DOU.ua RSS Feed:**
 - https://jobs.dou.ua/vacancies/dwarf-engineering/feeds/
 
-It parses the RSS XML feed and extracts job titles from `<title>` tags within `<item>` elements.
+It parses the RSS XML feed and extracts job titles from `<title>` tags within `<item>` elements, cleaning up location suffixes.
+
+### DefTech Integration (`/list_deftech`)
+
+The bot fetches job listings from:
+- https://deftech.dou.ua/jobs/?city=Київ
+
+It parses the HTML page to extract job titles, companies, and identifies "hot" job postings with special markers.
+
+### Database Storage
+
+All fetched jobs are stored in a local SQLite database (`jobs.db`) with the following information:
+- Job title
+- Source (peopleforce, dou, deftech)
+- URL
+- Fetch timestamp
+
+This allows for tracking job history and avoiding duplicate processing.
+
+### Performance Optimizations
+
+- **Shared HTTP Client**: Single HTTP client instance with 10-second timeout reused across all requests
+- **Efficient String Building**: Uses `strings.Builder` for message formatting instead of string concatenation
+- **Duplicate Removal**: Intelligent deduplication of job listings across sources
+- **Memory Management**: Proper resource cleanup and connection reuse
 
 ## Development
 
