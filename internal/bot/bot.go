@@ -429,10 +429,10 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 			log.Printf("Error getting job ID for %s: %v", jobInfo.Title, err)
 			continue
 		}
-		action := "🙈"
+		action := "hide"
 		prefix := "ignore"
 		if hidden {
-			action = "👁️"
+			action = "show"
 			prefix = "unignore"
 		}
 		if jobInfo.Company != "" {
@@ -496,10 +496,10 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 			log.Printf("Error getting job ID for %s: %v", jobInfo.Title, err)
 			continue
 		}
-		action := "🙈"
+		action := "hide"
 		prefix := "ignore"
 		if hidden {
-			action = "👁️"
+			action = "show"
 			prefix = "unignore"
 		}
 		if jobInfo.Company != "" {
@@ -559,10 +559,10 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 				log.Printf("Error getting job ID for %s: %v", title, err)
 				continue
 			}
-			action := "🙈"
+			action := "hide"
 			prefix := "ignore"
 			if hidden {
-				action = "👁️"
+				action = "show"
 				prefix = "unignore"
 			}
 			message.WriteString(fmt.Sprintf("%d. %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, title, action, c.Bot().Me.Username, prefix, id))
@@ -578,10 +578,10 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 				log.Printf("Error getting job ID for %s: %v", title, err)
 				continue
 			}
-			action := "🙈"
+			action := "hide"
 			prefix := "ignore"
 			if hidden {
-				action = "👁️"
+				action = "show"
 				prefix = "unignore"
 			}
 			message.WriteString(fmt.Sprintf("%d. %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, title, action, c.Bot().Me.Username, prefix, id))
