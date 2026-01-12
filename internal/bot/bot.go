@@ -174,6 +174,29 @@ func (b *Bot) getJobs() ([]Job, error) {
 	return jobs, rows.Err()
 }
 
+// getVisibleJobs retrieves all non-hidden jobs from the database
+func (b *Bot) getVisibleJobs() ([]Job, error) {
+	query := `SELECT id, title, url, created_at, is_hidden FROM jobs WHERE is_hidden = FALSE ORDER BY created_at DESC`
+
+	rows, err := b.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []Job
+	for rows.Next() {
+		var job Job
+		err := rows.Scan(&job.ID, &job.Title, &job.URL, &job.CreatedAt, &job.IsHidden)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, job)
+	}
+
+	return jobs, rows.Err()
+}
+
 // registerHandlers registers all bot command and message handlers
 func (b *Bot) registerHandlers() {
 	// Start command handler
@@ -187,6 +210,9 @@ func (b *Bot) registerHandlers() {
 
 	// Get list DefTech command handler
 	b.telebot.Handle("/deftech_all", b.handleGetDeftechAll)
+
+	// Get visible DefTech jobs command handler
+	b.telebot.Handle("/deftech", b.handleGetDeftech)
 
 	// Truncate command handler
 	b.telebot.Handle("/truncate", b.handleTruncate)
@@ -250,7 +276,8 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n" +
 		"/dwarf_engineering - Get Dwarf Engineering jobs from PeopleForce and DOU.ua\n" +
-		"/deftech_all - Get list from DefTech DOU.ua\n\n" +
+		"/deftech_all - Get list from DefTech DOU.ua\n" +
+		"/deftech - Show visible DefTech jobs\n\n" +
 		"/truncate - Truncate jobs table"
 	return c.Send(startText)
 }
@@ -268,6 +295,7 @@ func (b *Bot) handleHelp(c telebot.Context) error {
 		"/help - Show this help message\n" +
 		"/dwarf_engineering - Get Dwarf Engineering jobs from PeopleForce and DOU.ua\n" +
 		"/deftech_all - Get list from DefTech DOU.ua\n" +
+		"/deftech - Show visible DefTech jobs\n" +
 		"/truncate - Truncate jobs table"
 	return c.Send(helpText)
 }
@@ -412,6 +440,37 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 		} else {
 			message.WriteString(fmt.Sprintf("%d. %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, action, c.Bot().Me.Username, prefix, id))
 		}
+	}
+
+	return c.Send(message.String(), telebot.ModeMarkdown)
+}
+
+// handleGetDeftech handles the /deftech command
+func (b *Bot) handleGetDeftech(c telebot.Context) error {
+	if !b.isAdmin(c.Sender().ID) {
+		log.Printf("Unauthorized access attempt from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
+		return c.Send("Sorry, you are not authorized to use this bot.")
+	}
+
+	log.Printf("Command /deftech received from user %s", c.Sender().Username)
+
+	// Get visible jobs from database
+	jobs, err := b.getVisibleJobs()
+	if err != nil {
+		log.Printf("Error getting visible jobs: %v", err)
+		return c.Send(fmt.Sprintf("Error fetching job listings: %v", err))
+	}
+
+	if len(jobs) == 0 {
+		return c.Send("No visible job listings found.")
+	}
+
+	// Format and send the list
+	var message strings.Builder
+	for i, job := range jobs {
+		action := "Hide"
+		prefix := "ignore"
+		message.WriteString(fmt.Sprintf("%d. %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, job.Title, action, c.Bot().Me.Username, prefix, job.ID))
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown)
