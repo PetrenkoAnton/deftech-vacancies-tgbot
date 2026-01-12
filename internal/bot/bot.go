@@ -164,6 +164,9 @@ func (b *Bot) registerHandlers() {
 	// Get list DefTech command handler
 	b.telebot.Handle("/list_deftech", b.handleGetListDeftech)
 
+	// Inline button callback handler
+	b.telebot.Handle(telebot.OnCallback, b.handleCallback)
+
 	// Default message handler
 	b.telebot.Handle(telebot.OnText, b.handleText)
 }
@@ -327,7 +330,19 @@ func (b *Bot) handleGetListDeftech(c telebot.Context) error {
 		}
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdown)
+	// Create inline keyboard with ignore buttons
+	var buttons [][]telebot.InlineButton
+	for i := range jobInfos {
+		button := telebot.InlineButton{
+			Text: "Ignore",
+			Data: fmt.Sprintf("ignore_deftech_%d", i),
+		}
+		buttons = append(buttons, []telebot.InlineButton{button})
+	}
+
+	markup := &telebot.ReplyMarkup{InlineKeyboard: buttons}
+
+	return c.Send(message.String(), telebot.ModeMarkdown, markup)
 }
 
 // handleGetDwarfEngineering handles the /dwarf_engineering command
@@ -384,7 +399,33 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		}
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
+	// Create inline keyboard with ignore buttons
+	var buttons [][]telebot.InlineButton
+	jobIndex := 0
+
+	// Add ignore buttons for PeopleForce jobs
+	for range peopleforceTitles {
+		button := telebot.InlineButton{
+			Text: "Ignore",
+			Data: fmt.Sprintf("ignore_pf_%d", jobIndex),
+		}
+		buttons = append(buttons, []telebot.InlineButton{button})
+		jobIndex++
+	}
+
+	// Add ignore buttons for DOU jobs
+	for range douTitles {
+		button := telebot.InlineButton{
+			Text: "Ignore",
+			Data: fmt.Sprintf("ignore_dou_%d", jobIndex-len(peopleforceTitles)),
+		}
+		buttons = append(buttons, []telebot.InlineButton{button})
+		jobIndex++
+	}
+
+	markup := &telebot.ReplyMarkup{InlineKeyboard: buttons}
+
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, markup)
 }
 
 // RSSFeed represents the RSS feed structure
@@ -612,6 +653,19 @@ func (b *Bot) handleText(c telebot.Context) error {
 	log.Printf("Text message received from user %s: %s", c.Sender().Username, c.Text())
 	// Echo the message back
 	return c.Send("You said: " + c.Text())
+}
+
+// handleCallback handles inline button callbacks
+func (b *Bot) handleCallback(c telebot.Context) error {
+	if !b.isAdmin(c.Sender().ID) {
+		log.Printf("Unauthorized callback from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
+		return c.Respond(&telebot.CallbackResponse{Text: "Unauthorized"})
+	}
+
+	log.Printf("Callback received from user %s: %s", c.Sender().Username, c.Callback().Data)
+
+	// For now, just acknowledge the callback without functionality
+	return c.Respond(&telebot.CallbackResponse{Text: "Ignore functionality not implemented yet"})
 }
 
 // Start starts the bot
