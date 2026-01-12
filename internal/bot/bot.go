@@ -1,7 +1,9 @@
 package bot
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -86,6 +88,13 @@ func New(token string, adminID string) (*Bot, error) {
 	return bot, nil
 }
 
+// generateRandomID generates a random 8-character hex string
+func generateRandomID() string {
+	bytes := make([]byte, 4)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
+}
+
 // isAdmin checks if the user is authorized to use the bot
 func (b *Bot) isAdmin(userID int64) bool {
 	if b.adminID == "" {
@@ -163,6 +172,9 @@ func (b *Bot) registerHandlers() {
 
 	// Get list DefTech command handler
 	b.telebot.Handle("/list_deftech", b.handleGetListDeftech)
+
+	// Ignore command handler
+	b.telebot.Handle("/ignore", b.handleIgnore)
 
 	// Inline button callback handler
 	b.telebot.Handle(telebot.OnCallback, b.handleCallback)
@@ -319,14 +331,15 @@ func (b *Bot) handleGetListDeftech(c telebot.Context) error {
 	// Format and send the list
 	var message strings.Builder
 	for i, jobInfo := range jobInfos {
+		randomID := generateRandomID()
 		hotMarker := ""
 		if jobInfo.IsHot {
 			hotMarker = "🔥 "
 		}
 		if jobInfo.Company != "" {
-			message.WriteString(fmt.Sprintf("%d. %s%s (%s) [Ignore](ignore_deftech_%d)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company, i))
+			message.WriteString(fmt.Sprintf("%d. %s%s (%s) [/ignore %s](https://t.me/%s?start=ignore_%s)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company, randomID, c.Bot().Me.Username, randomID))
 		} else {
-			message.WriteString(fmt.Sprintf("%d. %s%s [Ignore](ignore_deftech_%d)\n", i+1, hotMarker, jobInfo.Title, i))
+			message.WriteString(fmt.Sprintf("%d. %s%s [/ignore %s](https://t.me/%s?start=ignore_%s)\n", i+1, hotMarker, jobInfo.Title, randomID, c.Bot().Me.Username, randomID))
 		}
 	}
 
@@ -375,7 +388,8 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	if len(peopleforceTitles) > 0 {
 		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
 		for i, title := range peopleforceTitles {
-			message.WriteString(fmt.Sprintf("%d. %s [Ignore](ignore_pf_%d)\n", i+1, title, i))
+			randomID := generateRandomID()
+			message.WriteString(fmt.Sprintf("%d. %s [/ignore %s](https://t.me/%s?start=ignore_%s)\n", i+1, title, randomID, c.Bot().Me.Username, randomID))
 		}
 		message.WriteString("\n")
 	}
@@ -383,7 +397,8 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	if len(douTitles) > 0 {
 		message.WriteString("**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n")
 		for i, title := range douTitles {
-			message.WriteString(fmt.Sprintf("%d. %s [Ignore](ignore_dou_%d)\n", i+1, title, i))
+			randomID := generateRandomID()
+			message.WriteString(fmt.Sprintf("%d. %s [/ignore %s](https://t.me/%s?start=ignore_%s)\n", i+1, title, randomID, c.Bot().Me.Username, randomID))
 		}
 	}
 
@@ -628,6 +643,20 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 
 	// For now, just acknowledge the callback without functionality
 	return c.Respond(&telebot.CallbackResponse{Text: "Ignore functionality not implemented yet"})
+}
+
+// handleIgnore handles the /ignore command
+func (b *Bot) handleIgnore(c telebot.Context) error {
+	if !b.isAdmin(c.Sender().ID) {
+		log.Printf("Unauthorized ignore command from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
+		return c.Send("Sorry, you are not authorized to use this bot.")
+	}
+
+	args := strings.TrimSpace(c.Message().Payload)
+	log.Printf("Command /ignore received from user %s with args: %s", c.Sender().Username, args)
+
+	// For now, just acknowledge the command without functionality
+	return c.Send(fmt.Sprintf("Ignore functionality not implemented yet. ID: %s", args))
 }
 
 // Start starts the bot
