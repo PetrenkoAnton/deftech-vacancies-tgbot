@@ -3,7 +3,6 @@ package bot
 import (
 	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -88,11 +87,13 @@ func New(token string, adminID string) (*Bot, error) {
 	return bot, nil
 }
 
-// generateRandomID generates a random 8-character hex string
-func generateRandomID() string {
+// generateRandomID generates a random integer ID
+func generateRandomID() int {
 	bytes := make([]byte, 4)
 	rand.Read(bytes)
-	return hex.EncodeToString(bytes)
+	// Convert first 4 bytes to uint32, then to int
+	id := int(bytes[0])<<24 | int(bytes[1])<<16 | int(bytes[2])<<8 | int(bytes[3])
+	return id
 }
 
 // isAdmin checks if the user is authorized to use the bot
@@ -337,9 +338,9 @@ func (b *Bot) handleGetListDeftech(c telebot.Context) error {
 			hotMarker = "🔥 "
 		}
 		if jobInfo.Company != "" {
-			message.WriteString(fmt.Sprintf("%d. %s%s (%s) [/ignore %s](https://t.me/%s?start=ignore_%s)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company, randomID, c.Bot().Me.Username, randomID))
+			message.WriteString(fmt.Sprintf("%d. %s%s (%s) [/ignore %d](https://t.me/%s?start=ignore_%d)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company, randomID, c.Bot().Me.Username, randomID))
 		} else {
-			message.WriteString(fmt.Sprintf("%d. %s%s [/ignore %s](https://t.me/%s?start=ignore_%s)\n", i+1, hotMarker, jobInfo.Title, randomID, c.Bot().Me.Username, randomID))
+			message.WriteString(fmt.Sprintf("%d. %s%s [/ignore %d](https://t.me/%s?start=ignore_%d)\n", i+1, hotMarker, jobInfo.Title, randomID, c.Bot().Me.Username, randomID))
 		}
 	}
 
@@ -389,7 +390,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
 		for i, title := range peopleforceTitles {
 			randomID := generateRandomID()
-			message.WriteString(fmt.Sprintf("%d. %s [/ignore %s](https://t.me/%s?start=ignore_%s)\n", i+1, title, randomID, c.Bot().Me.Username, randomID))
+			message.WriteString(fmt.Sprintf("%d. %s [/ignore %d](https://t.me/%s?start=ignore_%d)\n", i+1, title, randomID, c.Bot().Me.Username, randomID))
 		}
 		message.WriteString("\n")
 	}
@@ -398,7 +399,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		message.WriteString("**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n")
 		for i, title := range douTitles {
 			randomID := generateRandomID()
-			message.WriteString(fmt.Sprintf("%d. %s [/ignore %s](https://t.me/%s?start=ignore_%s)\n", i+1, title, randomID, c.Bot().Me.Username, randomID))
+			message.WriteString(fmt.Sprintf("%d. %s [/ignore %d](https://t.me/%s?start=ignore_%d)\n", i+1, title, randomID, c.Bot().Me.Username, randomID))
 		}
 	}
 
