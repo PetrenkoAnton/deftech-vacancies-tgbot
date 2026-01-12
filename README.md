@@ -42,11 +42,14 @@ BOT_TOKEN=your_telegram_bot_token_here
 
 ## Configuration
 
-The bot requires the following environment variable:
+The bot requires the following environment variables:
 
 - `BOT_TOKEN` - Your Telegram bot token obtained from BotFather
+- `ADMIN_ID` - (Optional) Telegram user ID of the admin user. If not set, the bot allows access to all users.
 
-You can set this in the `.env` file or as a system environment variable. The `.env` file takes precedence if it exists.
+You can set these in the `.env` file or as system environment variables. The `.env` file takes precedence if it exists.
+
+**Note:** For security, it's recommended to set `ADMIN_ID` to restrict bot access to authorized users only.
 
 ## Usage
 

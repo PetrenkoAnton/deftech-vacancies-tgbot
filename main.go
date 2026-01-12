@@ -22,9 +22,12 @@ func main() {
 		log.Fatal("BOT_TOKEN environment variable is not set")
 	}
 
+	// Get admin ID from environment variable (optional)
+	adminID := os.Getenv("ADMIN_ID")
+
 	// Initialize bot
 	log.Println("Initializing Telegram bot...")
-	telegramBot, err := bot.New(botToken)
+	telegramBot, err := bot.New(botToken, adminID)
 	if err != nil {
 		log.Fatalf("Failed to initialize bot: %v", err)
 	}
