@@ -198,7 +198,7 @@ func (b *Bot) handleStart(c telebot.Context) error {
 	if strings.HasPrefix(payload, "ignore_") {
 		idStr := strings.TrimPrefix(payload, "ignore_")
 		log.Printf("Ignore command via deep link from user %s with ID: %s", c.Sender().Username, idStr)
-		return c.Send(fmt.Sprintf("Ignore functionality not implemented yet. ID: %s", idStr))
+		return b.processIgnore(c, idStr)
 	}
 
 	startText := "Hello! Welcome to the bot.\n\nAvailable commands:\n" +
@@ -655,6 +655,13 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 	return c.Respond(&telebot.CallbackResponse{Text: "Ignore functionality not implemented yet"})
 }
 
+// processIgnore processes an ignore request with the given ID
+func (b *Bot) processIgnore(c telebot.Context, idStr string) error {
+	log.Printf("Processing ignore request from user %s with ID: %s", c.Sender().Username, idStr)
+	// For now, just acknowledge the command without functionality
+	return c.Send(fmt.Sprintf("Ignore functionality not implemented yet. ID: %s", idStr))
+}
+
 // handleIgnore handles the /ignore command
 func (b *Bot) handleIgnore(c telebot.Context) error {
 	if !b.isAdmin(c.Sender().ID) {
@@ -665,8 +672,7 @@ func (b *Bot) handleIgnore(c telebot.Context) error {
 	args := strings.TrimSpace(c.Message().Payload)
 	log.Printf("Command /ignore received from user %s with args: %s", c.Sender().Username, args)
 
-	// For now, just acknowledge the command without functionality
-	return c.Send(fmt.Sprintf("Ignore functionality not implemented yet. ID: %s", args))
+	return b.processIgnore(c, args)
 }
 
 // Start starts the bot
