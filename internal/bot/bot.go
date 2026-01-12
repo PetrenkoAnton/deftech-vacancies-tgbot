@@ -192,6 +192,15 @@ func (b *Bot) handleStart(c telebot.Context) error {
 	}
 
 	log.Printf("Command /start received from user %s", c.Sender().Username)
+
+	// Check if this is an ignore command via deep link
+	payload := strings.TrimSpace(c.Message().Payload)
+	if strings.HasPrefix(payload, "ignore_") {
+		idStr := strings.TrimPrefix(payload, "ignore_")
+		log.Printf("Ignore command via deep link from user %s with ID: %s", c.Sender().Username, idStr)
+		return c.Send(fmt.Sprintf("Ignore functionality not implemented yet. ID: %s", idStr))
+	}
+
 	startText := "Hello! Welcome to the bot.\n\nAvailable commands:\n" +
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n" +
@@ -338,9 +347,9 @@ func (b *Bot) handleGetListDeftech(c telebot.Context) error {
 			hotMarker = "🔥 "
 		}
 		if jobInfo.Company != "" {
-			message.WriteString(fmt.Sprintf("%d. %s%s (%s) [/ignore %d](https://t.me/%s?start=ignore_%d)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company, randomID, c.Bot().Me.Username, randomID))
+			message.WriteString(fmt.Sprintf("%d. %s%s (%s) [/ignore %d](tg://resolve?domain=%s&start=ignore_%d)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company, randomID, c.Bot().Me.Username, randomID))
 		} else {
-			message.WriteString(fmt.Sprintf("%d. %s%s [/ignore %d](https://t.me/%s?start=ignore_%d)\n", i+1, hotMarker, jobInfo.Title, randomID, c.Bot().Me.Username, randomID))
+			message.WriteString(fmt.Sprintf("%d. %s%s [/ignore %d](tg://resolve?domain=%s&start=ignore_%d)\n", i+1, hotMarker, jobInfo.Title, randomID, c.Bot().Me.Username, randomID))
 		}
 	}
 
@@ -390,7 +399,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
 		for i, title := range peopleforceTitles {
 			randomID := generateRandomID()
-			message.WriteString(fmt.Sprintf("%d. %s [/ignore %d](https://t.me/%s?start=ignore_%d)\n", i+1, title, randomID, c.Bot().Me.Username, randomID))
+			message.WriteString(fmt.Sprintf("%d. %s [/ignore %d](tg://resolve?domain=%s&start=ignore_%d)\n", i+1, title, randomID, c.Bot().Me.Username, randomID))
 		}
 		message.WriteString("\n")
 	}
@@ -399,7 +408,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		message.WriteString("**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n")
 		for i, title := range douTitles {
 			randomID := generateRandomID()
-			message.WriteString(fmt.Sprintf("%d. %s [/ignore %d](https://t.me/%s?start=ignore_%d)\n", i+1, title, randomID, c.Bot().Me.Username, randomID))
+			message.WriteString(fmt.Sprintf("%d. %s [/ignore %d](tg://resolve?domain=%s&start=ignore_%d)\n", i+1, title, randomID, c.Bot().Me.Username, randomID))
 		}
 	}
 
