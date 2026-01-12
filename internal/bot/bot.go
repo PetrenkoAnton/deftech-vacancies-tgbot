@@ -324,25 +324,13 @@ func (b *Bot) handleGetListDeftech(c telebot.Context) error {
 			hotMarker = "🔥 "
 		}
 		if jobInfo.Company != "" {
-			message.WriteString(fmt.Sprintf("%d. %s%s (%s)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company))
+			message.WriteString(fmt.Sprintf("%d. %s%s (%s) [Ignore](ignore_deftech_%d)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company, i))
 		} else {
-			message.WriteString(fmt.Sprintf("%d. %s%s\n", i+1, hotMarker, jobInfo.Title))
+			message.WriteString(fmt.Sprintf("%d. %s%s [Ignore](ignore_deftech_%d)\n", i+1, hotMarker, jobInfo.Title, i))
 		}
 	}
 
-	// Create inline keyboard with ignore buttons
-	var buttons [][]telebot.InlineButton
-	for i := range jobInfos {
-		button := telebot.InlineButton{
-			Text: "Ignore",
-			Data: fmt.Sprintf("ignore_deftech_%d", i),
-		}
-		buttons = append(buttons, []telebot.InlineButton{button})
-	}
-
-	markup := &telebot.ReplyMarkup{InlineKeyboard: buttons}
-
-	return c.Send(message.String(), telebot.ModeMarkdown, markup)
+	return c.Send(message.String(), telebot.ModeMarkdown)
 }
 
 // handleGetDwarfEngineering handles the /dwarf_engineering command
@@ -387,7 +375,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	if len(peopleforceTitles) > 0 {
 		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
 		for i, title := range peopleforceTitles {
-			message.WriteString(fmt.Sprintf("%d. %s\n", i+1, title))
+			message.WriteString(fmt.Sprintf("%d. %s [Ignore](ignore_pf_%d)\n", i+1, title, i))
 		}
 		message.WriteString("\n")
 	}
@@ -395,37 +383,11 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	if len(douTitles) > 0 {
 		message.WriteString("**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n")
 		for i, title := range douTitles {
-			message.WriteString(fmt.Sprintf("%d. %s\n", i+1, title))
+			message.WriteString(fmt.Sprintf("%d. %s [Ignore](ignore_dou_%d)\n", i+1, title, i))
 		}
 	}
 
-	// Create inline keyboard with ignore buttons
-	var buttons [][]telebot.InlineButton
-	jobIndex := 0
-
-	// Add ignore buttons for PeopleForce jobs
-	for range peopleforceTitles {
-		button := telebot.InlineButton{
-			Text: "Ignore",
-			Data: fmt.Sprintf("ignore_pf_%d", jobIndex),
-		}
-		buttons = append(buttons, []telebot.InlineButton{button})
-		jobIndex++
-	}
-
-	// Add ignore buttons for DOU jobs
-	for range douTitles {
-		button := telebot.InlineButton{
-			Text: "Ignore",
-			Data: fmt.Sprintf("ignore_dou_%d", jobIndex-len(peopleforceTitles)),
-		}
-		buttons = append(buttons, []telebot.InlineButton{button})
-		jobIndex++
-	}
-
-	markup := &telebot.ReplyMarkup{InlineKeyboard: buttons}
-
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, markup)
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
 }
 
 // RSSFeed represents the RSS feed structure
