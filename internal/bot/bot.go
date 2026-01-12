@@ -421,8 +421,11 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 		return c.Send("No job listings found.")
 	}
 
-	// Format and send the list
+	// Format and send the list as a table
 	var message strings.Builder
+	message.WriteString("| # | Job Title | Company | Action |\n")
+	message.WriteString("|---|-----------|---------|--------|\n")
+	
 	for i, jobInfo := range jobInfos {
 		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
 		if err != nil {
@@ -435,11 +438,11 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 			action = "show"
 			prefix = "unignore"
 		}
-		if jobInfo.Company != "" {
-			message.WriteString(fmt.Sprintf("%d. %s (%s) [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.Company, action, c.Bot().Me.Username, prefix, id))
-		} else {
-			message.WriteString(fmt.Sprintf("%d. %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, action, c.Bot().Me.Username, prefix, id))
+		company := jobInfo.Company
+		if company == "" {
+			company = "-"
 		}
+		message.WriteString(fmt.Sprintf("| %d | %s | %s | [%s](https://t.me/%s?start=%s_%d) |\n", i+1, jobInfo.Title, company, action, c.Bot().Me.Username, prefix, id))
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown)
@@ -488,8 +491,11 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 		return c.Send("No visible job listings found.")
 	}
 
-	// Format and send the list
+	// Format and send the list as a table
 	var message strings.Builder
+	message.WriteString("| # | Job Title | Company | Action |\n")
+	message.WriteString("|---|-----------|---------|--------|\n")
+	
 	for i, jobInfo := range visibleJobInfos {
 		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
 		if err != nil {
@@ -502,11 +508,11 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 			action = "show"
 			prefix = "unignore"
 		}
-		if jobInfo.Company != "" {
-			message.WriteString(fmt.Sprintf("%d. %s (%s) [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.Company, action, c.Bot().Me.Username, prefix, id))
-		} else {
-			message.WriteString(fmt.Sprintf("%d. %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, action, c.Bot().Me.Username, prefix, id))
+		company := jobInfo.Company
+		if company == "" {
+			company = "-"
 		}
+		message.WriteString(fmt.Sprintf("| %d | %s | %s | [%s](https://t.me/%s?start=%s_%d) |\n", i+1, jobInfo.Title, company, action, c.Bot().Me.Username, prefix, id))
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown)
@@ -553,6 +559,8 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 
 	if len(peopleforceTitles) > 0 {
 		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
+		message.WriteString("| # | Job Title | Action |\n")
+		message.WriteString("|---|-----------|--------|\n")
 		for i, title := range peopleforceTitles {
 			id, hidden, err := b.getJobIDAndHiddenByTitle(title)
 			if err != nil {
@@ -565,13 +573,15 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 				action = "show"
 				prefix = "unignore"
 			}
-			message.WriteString(fmt.Sprintf("%d. %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, title, action, c.Bot().Me.Username, prefix, id))
+			message.WriteString(fmt.Sprintf("| %d | %s | [%s](https://t.me/%s?start=%s_%d) |\n", i+1, title, action, c.Bot().Me.Username, prefix, id))
 		}
 		message.WriteString("\n")
 	}
 
 	if len(douTitles) > 0 {
 		message.WriteString("**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n")
+		message.WriteString("| # | Job Title | Action |\n")
+		message.WriteString("|---|-----------|--------|\n")
 		for i, title := range douTitles {
 			id, hidden, err := b.getJobIDAndHiddenByTitle(title)
 			if err != nil {
@@ -584,7 +594,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 				action = "show"
 				prefix = "unignore"
 			}
-			message.WriteString(fmt.Sprintf("%d. %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, title, action, c.Bot().Me.Username, prefix, id))
+			message.WriteString(fmt.Sprintf("| %d | %s | [%s](https://t.me/%s?start=%s_%d) |\n", i+1, title, action, c.Bot().Me.Username, prefix, id))
 		}
 	}
 
