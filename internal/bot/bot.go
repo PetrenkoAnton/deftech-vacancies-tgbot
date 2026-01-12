@@ -400,7 +400,7 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 
 	log.Printf("Command /deftech_all received from user %s", c.Sender().Username)
 	// Show loading message
-	c.Send("Fetching job listings from [https://deftech\\.dou\\.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) \\.\\.\\.", telebot.ModeMarkdownV2)
+	c.Send("Fetching job listings from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
 
 	// Fetch job titles from the DefTech DOU.ua page
 	jobInfos, err := b.FetchJobTitlesFromDeftech()
@@ -421,8 +421,11 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 		return c.Send("No job listings found.")
 	}
 
-	// Format and send the list
+	// Format and send the list as a monospace table
 	var message strings.Builder
+	message.WriteString("```\n")
+	message.WriteString(" # | Job Title                  | Company          | Action\n")
+	message.WriteString("---|-----------------------------|------------------|--------\n")
 
 	for i, jobInfo := range jobInfos {
 		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
@@ -436,14 +439,23 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 			action = "show"
 			prefix = "unignore"
 		}
-		if jobInfo.Company != "" {
-			message.WriteString(fmt.Sprintf("**%d\\.** %s _\\(%s\\)_ \\[%s\\]\\(https://t\\.me/%s?start=%s_%d\\)\n", i+1, jobInfo.Title, jobInfo.Company, action, c.Bot().Me.Username, prefix, id))
-		} else {
-			message.WriteString(fmt.Sprintf("**%d\\.** %s \\[%s\\]\\(https://t\\.me/%s?start=%s_%d\\)\n", i+1, jobInfo.Title, action, c.Bot().Me.Username, prefix, id))
+		company := jobInfo.Company
+		if company == "" {
+			company = "-"
 		}
+		// Truncate title and company if too long for table
+		title := jobInfo.Title
+		if len(title) > 27 {
+			title = title[:24] + "..."
+		}
+		if len(company) > 16 {
+			company = company[:13] + "..."
+		}
+		message.WriteString(fmt.Sprintf(" %d | %-27s | %-16s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, title, company, action, c.Bot().Me.Username, prefix, id))
 	}
+	message.WriteString("```\n")
 
-	return c.Send(message.String(), telebot.ModeMarkdownV2)
+	return c.Send(message.String(), telebot.ModeMarkdown)
 }
 
 // handleGetDeftech handles the /deftech command
@@ -455,7 +467,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 
 	log.Printf("Command /deftech received from user %s", c.Sender().Username)
 	// Show loading message
-	c.Send("Fetching job listings from [https://deftech\\.dou\\.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) \\.\\.\\.", telebot.ModeMarkdownV2)
+	c.Send("Fetching job listings from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
 
 	// Fetch job titles from the DefTech DOU.ua page
 	jobInfos, err := b.FetchJobTitlesFromDeftech()
@@ -489,8 +501,11 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 		return c.Send("No visible job listings found.")
 	}
 
-	// Format and send the list
+	// Format and send the list as a monospace table
 	var message strings.Builder
+	message.WriteString("```\n")
+	message.WriteString(" # | Job Title                  | Company          | Action\n")
+	message.WriteString("---|-----------------------------|------------------|--------\n")
 
 	for i, jobInfo := range visibleJobInfos {
 		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
@@ -504,14 +519,23 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 			action = "show"
 			prefix = "unignore"
 		}
-		if jobInfo.Company != "" {
-			message.WriteString(fmt.Sprintf("**%d\\.** %s _\\(%s\\)_ \\[%s\\]\\(https://t\\.me/%s?start=%s_%d\\)\n", i+1, jobInfo.Title, jobInfo.Company, action, c.Bot().Me.Username, prefix, id))
-		} else {
-			message.WriteString(fmt.Sprintf("**%d\\.** %s \\[%s\\]\\(https://t\\.me/%s?start=%s_%d\\)\n", i+1, jobInfo.Title, action, c.Bot().Me.Username, prefix, id))
+		company := jobInfo.Company
+		if company == "" {
+			company = "-"
 		}
+		// Truncate title and company if too long for table
+		title := jobInfo.Title
+		if len(title) > 27 {
+			title = title[:24] + "..."
+		}
+		if len(company) > 16 {
+			company = company[:13] + "..."
+		}
+		message.WriteString(fmt.Sprintf(" %d | %-27s | %-16s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, title, company, action, c.Bot().Me.Username, prefix, id))
 	}
+	message.WriteString("```\n")
 
-	return c.Send(message.String(), telebot.ModeMarkdownV2)
+	return c.Send(message.String(), telebot.ModeMarkdown)
 }
 
 // handleGetDwarfEngineering handles the /dwarf_engineering command
@@ -554,7 +578,10 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	var message strings.Builder
 
 	if len(peopleforceTitles) > 0 {
-		message.WriteString("\\*\\*[dwarfengineering\\.peopleforce\\.io/careers](https://dwarfengineering.peopleforce.io/careers):\\*\\*\n")
+		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
+		message.WriteString("```\n")
+		message.WriteString(" # | Job Title                  | Action\n")
+		message.WriteString("---|-----------------------------|--------\n")
 		for i, title := range peopleforceTitles {
 			id, hidden, err := b.getJobIDAndHiddenByTitle(title)
 			if err != nil {
@@ -567,13 +594,21 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 				action = "show"
 				prefix = "unignore"
 			}
-			message.WriteString(fmt.Sprintf("**%d\\.** %s \\[%s\\]\\(https://t\\.me/%s?start=%s_%d\\)\n", i+1, title, action, c.Bot().Me.Username, prefix, id))
+			// Truncate title if too long
+			jobTitle := title
+			if len(jobTitle) > 27 {
+				jobTitle = jobTitle[:24] + "..."
+			}
+			message.WriteString(fmt.Sprintf(" %d | %-27s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobTitle, action, c.Bot().Me.Username, prefix, id))
 		}
-		message.WriteString("\n")
+		message.WriteString("```\n\n")
 	}
 
 	if len(douTitles) > 0 {
-		message.WriteString("\\*\\*[jobs\\.dou\\.ua/companies/dwarf\\-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):\\*\\*\n")
+		message.WriteString("**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n")
+		message.WriteString("```\n")
+		message.WriteString(" # | Job Title                  | Action\n")
+		message.WriteString("---|-----------------------------|--------\n")
 		for i, title := range douTitles {
 			id, hidden, err := b.getJobIDAndHiddenByTitle(title)
 			if err != nil {
@@ -586,11 +621,17 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 				action = "show"
 				prefix = "unignore"
 			}
-			message.WriteString(fmt.Sprintf("**%d\\.** %s \\[%s\\]\\(https://t\\.me/%s?start=%s_%d\\)\n", i+1, title, action, c.Bot().Me.Username, prefix, id))
+			// Truncate title if too long
+			jobTitle := title
+			if len(jobTitle) > 27 {
+				jobTitle = jobTitle[:24] + "..."
+			}
+			message.WriteString(fmt.Sprintf(" %d | %-27s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobTitle, action, c.Bot().Me.Username, prefix, id))
 		}
+		message.WriteString("```\n")
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdownV2, telebot.NoPreview)
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
 }
 
 // handleTruncate handles the /truncate command
