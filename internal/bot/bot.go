@@ -440,7 +440,7 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 		if company == "" {
 			company = "-"
 		}
-		message.WriteString(fmt.Sprintf("%d. %s (%s) [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, company, action, c.Bot().Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) (%s) [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown)
@@ -508,7 +508,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 		if company == "" {
 			company = "-"
 		}
-		message.WriteString(fmt.Sprintf("%d. %s (%s) [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, company, action, c.Bot().Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) (%s) [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown)
@@ -556,7 +556,14 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	if len(peopleforceTitles) > 0 {
 		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
 		for i, title := range peopleforceTitles {
-			message.WriteString(fmt.Sprintf("%d. %s\n", i+1, title))
+			// Get job URL from database
+			var url string
+			err := b.db.QueryRow("SELECT url FROM jobs WHERE title = ?", title).Scan(&url)
+			if err != nil {
+				log.Printf("Error getting URL for job %s: %v", title, err)
+				url = "#"
+			}
+			message.WriteString(fmt.Sprintf("%d. [%s](%s)\n", i+1, title, url))
 		}
 		message.WriteString("\n")
 	}
@@ -564,7 +571,14 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	if len(douTitles) > 0 {
 		message.WriteString("**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n")
 		for i, title := range douTitles {
-			message.WriteString(fmt.Sprintf("%d. %s\n", i+1, title))
+			// Get job URL from database
+			var url string
+			err := b.db.QueryRow("SELECT url FROM jobs WHERE title = ?", title).Scan(&url)
+			if err != nil {
+				log.Printf("Error getting URL for job %s: %v", title, err)
+				url = "#"
+			}
+			message.WriteString(fmt.Sprintf("%d. [%s](%s)\n", i+1, title, url))
 		}
 	}
 
