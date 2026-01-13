@@ -440,7 +440,7 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 		if company == "" {
 			company = "-"
 		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [[%s]](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
@@ -508,7 +508,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 		if company == "" {
 			company = "-"
 		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [[%s]](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
