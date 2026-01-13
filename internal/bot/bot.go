@@ -7,6 +7,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,22 +23,16 @@ import (
 type Job struct {
 	ID        int       `json:"id"`
 	Title     string    `json:"title"`
-	Source    string    `json:"source"`
 	URL       string    `json:"url"`
-	FetchedAt time.Time `json:"fetched_at"`
+	IsHidden  bool      `json:"is_hidden"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // JobInfo represents job information with hot status
 type JobInfo struct {
 	Title   string
 	Company string
-	IsHot   bool
-}
-
-// DebugInfo represents debug information for links
-type DebugInfo struct {
-	Text string
-	URL  string
+	URL     string
 }
 
 // Bot represents the Telegram bot instance
@@ -68,9 +66,9 @@ func New(token string, adminID string) (*Bot, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// Create jobs table if it doesn't exist
-	if err := initDB(db); err != nil {
-		return nil, fmt.Errorf("failed to initialize database: %w", err)
+	// Run database migrations
+	if err := runMigrations(db); err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
 	bot := &Bot{
@@ -95,43 +93,69 @@ func (b *Bot) isAdmin(userID int64) bool {
 	return fmt.Sprintf("%d", userID) == b.adminID
 }
 
-// initDB initializes the database schema
-func initDB(db *sql.DB) error {
-	query := `
-	CREATE TABLE IF NOT EXISTS jobs (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		title TEXT NOT NULL,
-		source TEXT NOT NULL,
-		url TEXT,
-		fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE INDEX IF NOT EXISTS idx_jobs_source ON jobs(source);
-	CREATE INDEX IF NOT EXISTS idx_jobs_fetched_at ON jobs(fetched_at);
-	`
-	_, err := db.Exec(query)
-	return err
+// runMigrations runs database migrations
+func runMigrations(db *sql.DB) error {
+	files, err := filepath.Glob("migrations/*.sql")
+	if err != nil {
+		return err
+	}
+	sort.Strings(files)
+	for _, file := range files {
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return err
+		}
+		_, err = db.Exec(string(content))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // saveJob saves a job to the database
-func (b *Bot) saveJob(title, source, url string) error {
-	query := `INSERT INTO jobs (title, source, url, fetched_at) VALUES (?, ?, ?, ?)`
-	_, err := b.db.Exec(query, title, source, url, time.Now())
+func (b *Bot) saveJob(title, url string) error {
+	if b.jobExists(title) {
+		return nil // already exists
+	}
+	query := `INSERT INTO jobs (title, url, created_at, is_hidden) VALUES (?, ?, ?, FALSE)`
+	_, err := b.db.Exec(query, title, url, time.Now())
 	return err
 }
 
+// jobExists checks if a job with the given title already exists
+func (b *Bot) jobExists(title string) bool {
+	var count int
+	err := b.db.QueryRow("SELECT COUNT(*) FROM jobs WHERE title = ?", title).Scan(&count)
+	return err == nil && count > 0
+}
+
+// getJobIDAndHiddenByTitle gets the job ID and hidden status by title
+func (b *Bot) getJobIDAndHiddenByTitle(title string) (int, bool, error) {
+	var id int
+	var hidden bool
+	err := b.db.QueryRow("SELECT id, is_hidden FROM jobs WHERE title = ?", title).Scan(&id, &hidden)
+	return id, hidden, err
+}
+
+// setJobHidden sets the hidden status of a job by ID
+func (b *Bot) setJobHidden(id int, hidden bool) error {
+	_, err := b.db.Exec("UPDATE jobs SET is_hidden = ? WHERE id = ?", hidden, id)
+	return err
+}
+
+// getJobTitleByID gets the job title by ID
+func (b *Bot) getJobTitleByID(id int) (string, error) {
+	var title string
+	err := b.db.QueryRow("SELECT title FROM jobs WHERE id = ?", id).Scan(&title)
+	return title, err
+}
+
 // getJobs retrieves jobs from the database
-func (b *Bot) getJobs(source string) ([]Job, error) {
-	var query string
-	var args []interface{}
+func (b *Bot) getJobs() ([]Job, error) {
+	query := `SELECT id, title, url, created_at, is_hidden FROM jobs ORDER BY created_at ASC`
 
-	if source != "" {
-		query = `SELECT id, title, source, url, fetched_at FROM jobs WHERE source = ? ORDER BY fetched_at DESC`
-		args = []interface{}{source}
-	} else {
-		query = `SELECT id, title, source, url, fetched_at FROM jobs ORDER BY fetched_at DESC`
-	}
-
-	rows, err := b.db.Query(query, args...)
+	rows, err := b.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +164,30 @@ func (b *Bot) getJobs(source string) ([]Job, error) {
 	var jobs []Job
 	for rows.Next() {
 		var job Job
-		err := rows.Scan(&job.ID, &job.Title, &job.Source, &job.URL, &job.FetchedAt)
+		err := rows.Scan(&job.ID, &job.Title, &job.URL, &job.CreatedAt, &job.IsHidden)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, job)
+	}
+
+	return jobs, rows.Err()
+}
+
+// getVisibleJobs retrieves all non-hidden jobs from the database
+func (b *Bot) getVisibleJobs() ([]Job, error) {
+	query := `SELECT id, title, url, created_at, is_hidden FROM jobs WHERE is_hidden = FALSE ORDER BY created_at ASC`
+
+	rows, err := b.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []Job
+	for rows.Next() {
+		var job Job
+		err := rows.Scan(&job.ID, &job.Title, &job.URL, &job.CreatedAt, &job.IsHidden)
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +209,16 @@ func (b *Bot) registerHandlers() {
 	b.telebot.Handle("/dwarf_engineering", b.handleGetDwarfEngineering)
 
 	// Get list DefTech command handler
-	b.telebot.Handle("/list_deftech", b.handleGetListDeftech)
+	b.telebot.Handle("/deftech_all", b.handleGetDeftechAll)
+
+	// Get visible DefTech jobs command handler
+	b.telebot.Handle("/deftech", b.handleGetDeftech)
+
+	// Truncate command handler
+	b.telebot.Handle("/truncate", b.handleTruncate)
+
+	// Inline button callback handler
+	b.telebot.Handle(telebot.OnCallback, b.handleCallback)
 
 	// Default message handler
 	b.telebot.Handle(telebot.OnText, b.handleText)
@@ -176,11 +232,53 @@ func (b *Bot) handleStart(c telebot.Context) error {
 	}
 
 	log.Printf("Command /start received from user %s", c.Sender().Username)
+
+	// Check if this is an ignore/unignore command via deep link
+	payload := strings.TrimSpace(c.Message().Payload)
+	if strings.HasPrefix(payload, "ignore_") {
+		idStr := strings.TrimPrefix(payload, "ignore_")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return c.Send("Invalid ignore ID")
+		}
+		title, err := b.getJobTitleByID(id)
+		if err != nil {
+			log.Printf("Error getting title for job %d: %v", id, err)
+			return c.Send("Error ignoring job")
+		}
+		err = b.setJobHidden(id, true)
+		if err != nil {
+			log.Printf("Error hiding job %d: %v", id, err)
+			return c.Send("Error hiding job")
+		}
+		return c.Send(fmt.Sprintf("%s is hidden", title))
+	}
+	if strings.HasPrefix(payload, "unignore_") {
+		idStr := strings.TrimPrefix(payload, "unignore_")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return c.Send("Invalid unignore ID")
+		}
+		title, err := b.getJobTitleByID(id)
+		if err != nil {
+			log.Printf("Error getting title for job %d: %v", id, err)
+			return c.Send("Error showing job")
+		}
+		err = b.setJobHidden(id, false)
+		if err != nil {
+			log.Printf("Error showing job %d: %v", id, err)
+			return c.Send("Error showing job")
+		}
+		return c.Send(fmt.Sprintf("%s is shown", title))
+	}
+
 	startText := "Hello! Welcome to the bot.\n\nAvailable commands:\n" +
 		"/start - Start the bot\n" +
-		"/help - Show this help message\n" +
-		"/dwarf_engineering - Get Dwarf Engineering jobs from PeopleForce and DOU.ua\n" +
-		"/list_deftech - Get list from DefTech DOU.ua"
+		"/help - Show this help message\n\n" +
+		"/dwarf_engineering - Get Dwarf Engineering jobs\n" +
+		"/deftech - Fetch and show visible DefTech jobs\n\n" +
+		"/deftech_all - Get list from DefTech DOU.ua\n\n" +
+		"/truncate - Truncate jobs table"
 	return c.Send(startText)
 }
 
@@ -196,7 +294,9 @@ func (b *Bot) handleHelp(c telebot.Context) error {
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n" +
 		"/dwarf_engineering - Get Dwarf Engineering jobs from PeopleForce and DOU.ua\n" +
-		"/list_deftech - Get list from DefTech DOU.ua"
+		"/deftech_all - Get list from DefTech DOU.ua\n" +
+		"/deftech - Fetch and show visible DefTech jobs\n" +
+		"/truncate - Truncate jobs table"
 	return c.Send(helpText)
 }
 
@@ -222,7 +322,7 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 				allJobTitles = append(allJobTitles, title)
 				// Save to database
 				url := fmt.Sprintf("https://dwarfengineering.peopleforce.io/careers?page=%d", page)
-				if err := b.saveJob(title, "peopleforce", url); err != nil {
+				if err := b.saveJob(title, url); err != nil {
 					log.Printf("Error saving job to DB: %v", err)
 				}
 			}
@@ -291,14 +391,14 @@ func (b *Bot) findJobTitles(n *html.Node) []string {
 	return titles
 }
 
-// handleGetListDeftech handles the /list_deftech command
-func (b *Bot) handleGetListDeftech(c telebot.Context) error {
+// handleGetDeftechAll handles the /deftech_all command
+func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 	if !b.isAdmin(c.Sender().ID) {
 		log.Printf("Unauthorized access attempt from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
 		return c.Send("Sorry, you are not authorized to use this bot.")
 	}
 
-	log.Printf("Command /list_deftech received from user %s", c.Sender().Username)
+	log.Printf("Command /deftech_all received from user %s", c.Sender().Username)
 	// Show loading message
 	c.Send("Fetching job listings from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
 
@@ -309,25 +409,109 @@ func (b *Bot) handleGetListDeftech(c telebot.Context) error {
 		return c.Send(fmt.Sprintf("Error fetching job listings: %v", err))
 	}
 
+	// Save jobs to database if not exists
+	for _, jobInfo := range jobInfos {
+		err := b.saveJob(jobInfo.Title, jobInfo.URL)
+		if err != nil {
+			log.Printf("Error saving job to DB: %v", err)
+		}
+	}
+
 	if len(jobInfos) == 0 {
 		return c.Send("No job listings found.")
 	}
 
-	// Format and send the list
+	// Format and send the list as a simple numbered list
 	var message strings.Builder
+
 	for i, jobInfo := range jobInfos {
-		hotMarker := ""
-		if jobInfo.IsHot {
-			hotMarker = "🔥 "
+		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
+		if err != nil {
+			log.Printf("Error getting job ID for %s: %v", jobInfo.Title, err)
+			continue
 		}
-		if jobInfo.Company != "" {
-			message.WriteString(fmt.Sprintf("%d. %s%s (%s)\n", i+1, hotMarker, jobInfo.Title, jobInfo.Company))
-		} else {
-			message.WriteString(fmt.Sprintf("%d. %s%s\n", i+1, hotMarker, jobInfo.Title))
+		action := "hide"
+		prefix := "ignore"
+		if hidden {
+			action = "show"
+			prefix = "unignore"
+		}
+		company := jobInfo.Company
+		if company == "" {
+			company = "-"
+		}
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
+	}
+
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
+}
+
+// handleGetDeftech handles the /deftech command
+func (b *Bot) handleGetDeftech(c telebot.Context) error {
+	if !b.isAdmin(c.Sender().ID) {
+		log.Printf("Unauthorized access attempt from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
+		return c.Send("Sorry, you are not authorized to use this bot.")
+	}
+
+	log.Printf("Command /deftech received from user %s", c.Sender().Username)
+	// Show loading message
+	c.Send("Fetching job listings from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
+
+	// Fetch job titles from the DefTech DOU.ua page
+	jobInfos, err := b.FetchJobTitlesFromDeftech()
+	if err != nil {
+		log.Printf("Error fetching job titles from DefTech: %v", err)
+		return c.Send(fmt.Sprintf("Error fetching job listings: %v", err))
+	}
+
+	// Save jobs to database if not exists
+	for _, jobInfo := range jobInfos {
+		err := b.saveJob(jobInfo.Title, jobInfo.URL)
+		if err != nil {
+			log.Printf("Error saving job to DB: %v", err)
 		}
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdown)
+	// Filter jobInfos to only show visible jobs
+	var visibleJobInfos []JobInfo
+	for _, jobInfo := range jobInfos {
+		_, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
+		if err != nil {
+			// If job doesn't exist in DB yet (just saved), it's visible by default
+			visibleJobInfos = append(visibleJobInfos, jobInfo)
+		} else if !hidden {
+			// Job exists and is not hidden
+			visibleJobInfos = append(visibleJobInfos, jobInfo)
+		}
+	}
+
+	if len(visibleJobInfos) == 0 {
+		return c.Send("No visible job listings found.")
+	}
+
+	// Format and send the list as a simple numbered list
+	var message strings.Builder
+
+	for i, jobInfo := range visibleJobInfos {
+		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
+		if err != nil {
+			log.Printf("Error getting job ID for %s: %v", jobInfo.Title, err)
+			continue
+		}
+		action := "hide"
+		prefix := "ignore"
+		if hidden {
+			action = "show"
+			prefix = "unignore"
+		}
+		company := jobInfo.Company
+		if company == "" {
+			company = "-"
+		}
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
+	}
+
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
 }
 
 // handleGetDwarfEngineering handles the /dwarf_engineering command
@@ -372,7 +556,14 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	if len(peopleforceTitles) > 0 {
 		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
 		for i, title := range peopleforceTitles {
-			message.WriteString(fmt.Sprintf("%d. %s\n", i+1, title))
+			// Get job URL from database
+			var url string
+			err := b.db.QueryRow("SELECT url FROM jobs WHERE title = ?", title).Scan(&url)
+			if err != nil {
+				log.Printf("Error getting URL for job %s: %v", title, err)
+				url = "#"
+			}
+			message.WriteString(fmt.Sprintf("%d. [%s](%s)\n", i+1, title, url))
 		}
 		message.WriteString("\n")
 	}
@@ -380,11 +571,34 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	if len(douTitles) > 0 {
 		message.WriteString("**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n")
 		for i, title := range douTitles {
-			message.WriteString(fmt.Sprintf("%d. %s\n", i+1, title))
+			// Get job URL from database
+			var url string
+			err := b.db.QueryRow("SELECT url FROM jobs WHERE title = ?", title).Scan(&url)
+			if err != nil {
+				log.Printf("Error getting URL for job %s: %v", title, err)
+				url = "#"
+			}
+			message.WriteString(fmt.Sprintf("%d. [%s](%s)\n", i+1, title, url))
 		}
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
+}
+
+// handleTruncate handles the /truncate command
+func (b *Bot) handleTruncate(c telebot.Context) error {
+	if !b.isAdmin(c.Sender().ID) {
+		log.Printf("Unauthorized truncate command from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
+		return c.Send("Sorry, you are not authorized to use this bot.")
+	}
+
+	log.Printf("Command /truncate received from user %s", c.Sender().Username)
+	_, err := b.db.Exec("DELETE FROM jobs")
+	if err != nil {
+		log.Printf("Error truncating jobs: %v", err)
+		return c.Send("Error truncating jobs table")
+	}
+	return c.Send("Jobs table truncated successfully")
 }
 
 // RSSFeed represents the RSS feed structure
@@ -442,7 +656,7 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 			if title != "" {
 				jobTitles = append(jobTitles, title)
 				// Save to database
-				if err := b.saveJob(title, "dou", item.Link); err != nil {
+				if err := b.saveJob(title, item.Link); err != nil {
 					log.Printf("Error saving job to DB: %v", err)
 				}
 			}
@@ -450,33 +664,6 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 	}
 
 	return jobTitles, nil
-}
-
-// FetchJobTitlesFromDeftechDebug fetches and returns debug info for all links
-func FetchJobTitlesFromDeftechDebug() ([]DebugInfo, error) {
-	url := "https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2"
-
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch page: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	doc, err := html.Parse(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse HTML: %w", err)
-	}
-
-	debugInfos := findLinksDebug(doc)
-	return debugInfos, nil
 }
 
 // FetchJobTitlesFromDeftech fetches and parses job titles from DefTech DOU.ua page
@@ -502,25 +689,6 @@ func (b *Bot) FetchJobTitlesFromDeftech() ([]JobInfo, error) {
 	return jobInfos, nil
 }
 
-// findLinksDebug finds all links for debugging
-func findLinksDebug(n *html.Node) []DebugInfo {
-	var debugInfos []DebugInfo
-	if n.Type == html.ElementNode && n.Data == "a" {
-		for _, attr := range n.Attr {
-			if attr.Key == "href" {
-				text := strings.TrimSpace(extractText(n))
-				if text != "" && len(text) < 100 {
-					debugInfos = append(debugInfos, DebugInfo{Text: text, URL: attr.Val})
-				}
-			}
-		}
-	}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		debugInfos = append(debugInfos, findLinksDebug(c)...)
-	}
-	return debugInfos
-}
-
 // findJobTitlesDeftech finds job titles in the DefTech HTML document
 func findJobTitlesDeftech(n *html.Node) []JobInfo {
 	var allLinks []struct {
@@ -539,8 +707,7 @@ func findJobTitlesDeftech(n *html.Node) []JobInfo {
 			// Check if it's a job link (has a number after /vacancies/)
 			parts := strings.Split(link.url, "/vacancies/")
 			if len(parts) > 1 && len(parts[1]) > 0 && (parts[1][0] >= '0' && parts[1][0] <= '9') {
-				isHot := strings.Contains(link.url, "?from=list_hot")
-				jobInfo := JobInfo{Title: link.text, IsHot: isHot}
+				jobInfo := JobInfo{Title: link.text, URL: link.url}
 
 				// Look for the next company link
 				for j := i + 1; j < len(allLinks) && j < i+3; j++ { // Look up to 2 links ahead
@@ -612,6 +779,19 @@ func (b *Bot) handleText(c telebot.Context) error {
 	log.Printf("Text message received from user %s: %s", c.Sender().Username, c.Text())
 	// Echo the message back
 	return c.Send("You said: " + c.Text())
+}
+
+// handleCallback handles inline button callbacks
+func (b *Bot) handleCallback(c telebot.Context) error {
+	if !b.isAdmin(c.Sender().ID) {
+		log.Printf("Unauthorized callback from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
+		return c.Respond(&telebot.CallbackResponse{Text: "Unauthorized"})
+	}
+
+	log.Printf("Callback received from user %s: %s", c.Sender().Username, c.Callback().Data)
+
+	// For now, just acknowledge the callback without functionality
+	return c.Respond(&telebot.CallbackResponse{Text: "Ignore functionality not implemented yet"})
 }
 
 // Start starts the bot
