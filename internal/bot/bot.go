@@ -668,7 +668,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	log.Printf("Command /dwarf_engineering received from user %s", c.Sender().Username)
 	// Show loading message
-	c.Send("Fetching Dwarf Engineering job listings...")
+	c.Send("Fetching Dwarf Engineering vacancies...")
 
 	var peopleforceTitles []string
 	var douTitles []string
@@ -676,7 +676,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	// Fetch from PeopleForce
 	peopleforceTitlesRaw, err := b.fetchJobTitles()
 	if err != nil {
-		log.Printf("Error fetching vacancies from peopleforce.io: %v", err)
+		log.Printf("Error fetching vacancies from https://dwarfengineering.peopleforce.io/careers/: %v", err)
 		// Continue even if one source fails
 	} else {
 		peopleforceTitles = peopleforceTitlesRaw

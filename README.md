@@ -105,7 +105,3 @@ miltech-tgbot/
 ├── deftech-tgbot.db     # SQLite database (auto-created, configurable via DB_NAME)
 └── bin/                 # Compiled binaries
 ```
-
----
-
-*This code is generated via GrokCodeFast1 model*
