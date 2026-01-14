@@ -325,7 +325,7 @@ func (b *Bot) postDeftechVacancies() error {
 
 	chat := &telebot.Chat{ID: groupIDInt}
 
-	log.Println("Fetching deftech vacancy listings for periodic posting...")
+	log.Println("Fetching deftech vacancies for periodic posting →")
 
 	// Fetch vacancy titles from the deftech.dou.ua/jobs page
 	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
@@ -548,7 +548,7 @@ func (b *Bot) findJobTitles(n *html.Node) []VacancyInfo {
 func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 	log.Printf("Command /deftech_all received from user %s", c.Sender().Username)
 	// Show loading message
-	c.Send("Fetching vacancies from [https://deftech.dou.ua/vacancies/?city=Київ](https://deftech.dou.ua/vacancies/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
+	c.Send("Fetching vacancies from [https://deftech.dou.ua/vacancies/?city=Київ](https://deftech.dou.ua/vacancies/?city=%D0%9A%D0%B8%D1%97%D0%B2) →", telebot.ModeMarkdown)
 
 	// Fetch vacancy titles from the deftech.dou.ua page
 	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
@@ -598,7 +598,7 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	log.Printf("Command /deftech received from user %s", c.Sender().Username)
 	// Show loading message
-	c.Send("Fetching vacancies from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
+	c.Send("Fetching vacancies from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) →", telebot.ModeMarkdown)
 
 	// Fetch job titles from the deftech.dou.ua page
 	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
@@ -661,7 +661,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	log.Printf("Command /dwarf_engineering received from user %s", c.Sender().Username)
 	// Show loading message
-	c.Send("Fetching Dwarf Engineering vacancies...")
+	c.Send("Fetching Dwarf Engineering vacancies →")
 
 	var peopleforceTitles []string
 	var douTitles []string

@@ -1,14 +1,15 @@
 #!/bin/bash
 
 # Build the Go project
-echo "Building the project..."
+echo "Building the project →"
 go build -o ./bin/deftech-tgbot .
 
 # Check if build was successful
 if [ $? -eq 0 ]; then
-    echo "Build successful. Terminating any existing instance..."
+    echo "Build successful."
+    echo "Terminating any existing instance →"
     pkill -f deftech-tgbot || true
-    echo "Running the application..."
+    echo "Running the application →"
     ./bin/deftech-tgbot
 else
     echo "Build failed."

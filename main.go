@@ -54,7 +54,7 @@ func main() {
 	}
 
 	// Initialize bot
-	log.Println("Initializing Telegram bot...")
+	log.Println("Initializing Telegram bot →")
 	telegramBot, err := bot.New(botToken, adminID, groupID, intervalStr, dbName, vacanciesTable)
 	if err != nil {
 		log.Fatalf("Failed to initialize bot: %v", err)
@@ -62,7 +62,7 @@ func main() {
 
 	// Start bot in a goroutine
 	go func() {
-		log.Println("Starting Telegram bot...")
+		log.Println("Starting Telegram bot →")
 		telegramBot.Start()
 	}()
 
@@ -71,6 +71,6 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down bot...")
+	log.Println("Shutting down bot →")
 	telegramBot.Stop()
 }
