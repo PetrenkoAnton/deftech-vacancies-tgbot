@@ -109,10 +109,6 @@ func (b *Bot) tableName() string {
 
 // isAdmin checks if the user is authorized to use the bot
 func (b *Bot) isAdmin(userID int64) bool {
-	if b.adminID == "" {
-		// If no admin ID is set, allow all users (for development)
-		return true
-	}
 	return fmt.Sprintf("%d", userID) == b.adminID
 }
 

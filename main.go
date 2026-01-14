@@ -23,8 +23,11 @@ func main() {
 		log.Fatal("BOT_TOKEN environment variable is not set")
 	}
 
-	// Get admin ID from environment variable (optional)
+	// Get admin ID from environment variable (required)
 	adminID := os.Getenv("ADMIN_ID")
+	if adminID == "" {
+		log.Fatal("ADMIN_ID environment variable is not set")
+	}
 
 	// Get group ID from environment variable (required)
 	groupID := os.Getenv("GROUP_ID")
