@@ -1,30 +1,24 @@
 # Miltech Telegram Bot
 
-A Telegram bot that fetches and manages job listings from Dwarf Engineering and DefTech career pages.
+A Telegram bot that fetches and manages vacancies from Dwarf Engineering company and [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs).
 
 ## Features
 
 - **Job Sources**:
-  - Dwarf Engineering (PeopleForce + DOU.ua RSS)
-  - DefTech (DOU.ua)
+  - Dwarf Engineering ([dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers) and [jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies))
+  - [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs)
 
 - **Commands**:
-  - `/dwarf_engineering` - Get Dwarf Engineering jobs (simple list)
-  - `/deftech_all` - Get all DefTech jobs with hide/show controls
-  - `/deftech` - Get visible DefTech jobs only
-  - `/truncate` - Clear all vacancies from database
+  - `/deftech` - Get visible deftech vacancies only
+  - `/dwarf_engineering` - Get Dwarf Engineering vacancies
+  - `/deftech_all` - Get all deftech vacancies with hide/show controls
   - `/test_post` - Post a test message to the configured Telegram group
+  - `/truncate` - Clear all vacancies from database
 
 - **Automatic Posting**:
-  - Configurable periodic fetching and posting of **new** DefTech job listings to Telegram group
-  - Only posts when new jobs are discovered; logs otherwise
-  - Set `INTERVAL` in minutes to enable automatic job updates
-
-- **Database Features**:
-  - SQLite database with migrations
-  - Job persistence and deduplication
-  - Hide/show functionality for DefTech jobs
-  - Centralized admin authorization via middleware
+  - Configurable periodic fetching and posting of **new** deftech vacancies to Telegram group
+  - Only posts when new vacancies are discovered; logs otherwise
+  - Set `INTERVAL` in minutes to enable automatic vacancy updates
 
 - **Security**:
   - All bot commands require admin authorization
@@ -50,7 +44,7 @@ go mod download
 cp .env.example .env
 # Required: BOT_TOKEN from @BotFather
 # Required: ADMIN_ID - Your Telegram user ID (get from @userinfobot)
-# Required: GROUP_ID - Telegram group ID for automatic posting
+# Required: GROUP_ID - Telegram group ID for automatic posting (get ID from @ShowJsonBot or similar)
 # Required: INTERVAL - Posting interval in minutes
 # Optional: DB_NAME - Database file path (default: ./deftech-tgbot.db)
 # Optional: VACANCIES_TABLE - Database table name (default: vacancies)
@@ -70,15 +64,15 @@ go build -o bin/deftech-tgbot .
 
 - `/start` - Welcome message and command overview
 - `/help` - Show available commands
+- `/test_post` - Post a test message to the configured group
+- `/deftech` - Show only visible (non-hidden) DefTech jobs
 - `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + DOU.ua)
 - `/deftech_all` - Fetch all DefTech jobs with interactive hide/show links
-- `/deftech` - Show only visible (non-hidden) DefTech jobs
 - `/truncate` - Clear all jobs from database (admin only)
-- `/test_post` - Post a test message to the configured group
 
 ### Automatic Posting
 
-If `INTERVAL` is set in the `.env` file (in minutes), the bot will automatically fetch DefTech job listings at the specified interval. It will only post to the configured Telegram group when **new jobs are discovered**. If no new jobs are found, it will simply log the check without posting anything. The `/deftech` command can still be used for manual fetching of all visible jobs.
+If `INTERVAL` is set in the `.env` file (in minutes), the bot will automatically fetch deftech vacancies at the specified interval. It will only post to the configured Telegram group when **new vacancies are discovered**. If no new vacancies are found, it will simply log the check without posting anything. The `/deftech` command can still be used for manual fetching of all visible jobs.
 
 ### Admin Authorization
 
@@ -87,11 +81,10 @@ All bot commands require admin authorization. The bot uses centralized middlewar
 - **Required**: Set `ADMIN_ID` in your `.env` file to your Telegram user ID
 - **How to get your ID**: Send `/start` to [@userinfobot](https://t.me/userinfobot)
 - **Access Control**: Unauthorized users will receive "Sorry, you are not authorized to use this bot." messages
-- **Development**: If `ADMIN_ID` is not set, all users are allowed (for development purposes)
 
 ### Hide/Show Functionality
 
-DefTech commands (`/deftech_all`, `/deftech`) include interactive links to hide or show individual jobs. Click the links to toggle job visibility. Hidden jobs won't appear in `/deftech` command results.
+Bot commands (`/deftech`, `/deftech_all`) include interactive links to hide or show individual vacancies. Click the links to toggle vacancy visibility. Hidden vacancies won't appear in `/deftech` command results.
 
 ## Project Structure
 
