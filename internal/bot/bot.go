@@ -26,7 +26,7 @@ const (
 		"/test_post - Post a test message to the configured group\n\n" +
 		"/deftech - Fetch and show visible deftech vacancies\n\n" +
 		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
-		"/deftech_all - Get list from deftech.dou.ua\n\n" +
+		"/deftech_all - Get vacancies from deftech.dou.ua\n\n" +
 		"/truncate - Truncate vacancies table"
 )
 
