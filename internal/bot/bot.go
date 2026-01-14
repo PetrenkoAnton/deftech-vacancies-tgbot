@@ -127,7 +127,12 @@ func (b *Bot) isAdmin(userID int64) bool {
 func (b *Bot) adminMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 	return func(c telebot.Context) error {
 		if !b.isAdmin(c.Sender().ID) {
-			log.Printf("Unauthorized access attempt (ID: %d)", c.Sender().ID)
+			user := c.Sender()
+			fullName := user.FirstName
+			if user.LastName != "" {
+				fullName += " " + user.LastName
+			}
+			log.Printf("Unauthorized access attempt - User: %s (@%s) ID: %d", fullName, user.Username, user.ID)
 			return c.Send("Sorry, you are not authorized to use this bot.")
 		}
 		return next(c)
