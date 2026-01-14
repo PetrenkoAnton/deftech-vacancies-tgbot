@@ -701,11 +701,11 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	if len(peopleforceTitles) > 0 {
 		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
 		for i, title := range peopleforceTitles {
-			// Get job URL from database
+			// Get vacancy URL from database
 			var url string
-			err := b.db.QueryRow("SELECT url FROM jobs WHERE title = ?", title).Scan(&url)
+			err := b.db.QueryRow("SELECT url FROM vacancies WHERE title = ?", title).Scan(&url)
 			if err != nil {
-				log.Printf("Error getting URL for job %s: %v", title, err)
+				log.Printf("Error getting URL for vacancy %s: %v", title, err)
 				url = "#"
 			}
 			message.WriteString(fmt.Sprintf("%d. [%s](%s)\n", i+1, title, url))
