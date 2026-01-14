@@ -19,6 +19,17 @@ import (
 	telebot "gopkg.in/telebot.v3"
 )
 
+const (
+	commandsText = "Available commands:\n" +
+		"/start - Start the bot\n" +
+		"/help - Show this help message\n" +
+		"/test_post - Post a test message to the configured group\n\n" +
+		"/deftech - Fetch and show visible deftech vacancies\n\n" +
+		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
+		"/deftech_all - Get list from deftech.dou.ua\n\n" +
+		"/truncate - Truncate vacancies table"
+)
+
 // Vacancy represents a vacancy listing
 type Vacancy struct {
 	ID        int       `json:"id"`
@@ -419,29 +430,15 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		return c.Send(fmt.Sprintf("%s is shown", title))
 	}
 
-	startText := "Hello! Welcome to the bot.\n\nAvailable commands:\n" +
-		"/start - Start the bot\n" +
-		"/help - Show this help message\n" +
-		"/test_post - Post a test message to the configured group\n\n" +
-		"/deftech - Fetch and show visible deftech vacancies\n\n" +
-		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
-		"/deftech_all - Get list from deftech.dou.ua\n\n" +
-		"/truncate - Truncate vacancies table"
+	startText := "Hello! Welcome to the bot.\n\n" + commandsText
 	return c.Send(startText)
 }
 
 // handleHelp handles the /help command
+// handleHelp handles the /help command
 func (b *Bot) handleHelp(c telebot.Context) error {
 	log.Printf("Command /help received from user %s", c.Sender().Username)
-	helpText := "Available commands:\n" +
-		"/start - Start the bot\n" +
-		"/help - Show this help message\n" +
-		"/test_post - Post a test message to the configured group\n" +
-		"/deftech - Fetch and show visible deftech vacancies\n" +
-		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
-		"/deftech_all - Get list from deftech.dou.ua\n" +
-		"/truncate - Truncate vacancies table"
-	return c.Send(helpText)
+	return c.Send(commandsText)
 }
 
 // fetchJobTitles fetches and parses vacancy titles from all careers pages
