@@ -50,8 +50,8 @@ go mod download
 cp .env.example .env
 # Required: BOT_TOKEN from @BotFather
 # Required: ADMIN_ID - Your Telegram user ID (get from @userinfobot)
-# Optional: GROUP_ID - Telegram group ID for automatic posting
-# Optional: INTERVAL - Posting interval in minutes
+# Required: GROUP_ID - Telegram group ID for automatic posting
+# Required: INTERVAL - Posting interval in minutes
 # Optional: DB_NAME - Database file path (default: ./deftech-tgbot.db)
 # Optional: VACANCIES_TABLE - Database table name (default: vacancies)
 ```

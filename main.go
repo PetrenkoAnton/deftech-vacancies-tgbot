@@ -26,11 +26,17 @@ func main() {
 	// Get admin ID from environment variable (optional)
 	adminID := os.Getenv("ADMIN_ID")
 
-	// Get group ID from environment variable (optional)
+	// Get group ID from environment variable (required)
 	groupID := os.Getenv("GROUP_ID")
+	if groupID == "" {
+		log.Fatal("GROUP_ID environment variable is not set")
+	}
 
-	// Get interval from environment variable (optional)
+	// Get interval from environment variable (required)
 	intervalStr := os.Getenv("INTERVAL")
+	if intervalStr == "" {
+		log.Fatal("INTERVAL environment variable is not set")
+	}
 
 	// Get database name from environment variable (optional, default to ./deftech-tgbot.db)
 	dbName := os.Getenv("DB_NAME")

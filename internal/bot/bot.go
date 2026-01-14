@@ -703,7 +703,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		for i, title := range peopleforceTitles {
 			// Get vacancy URL from database
 			var url string
-			err := b.db.QueryRow("SELECT url FROM vacancies WHERE title = ?", title).Scan(&url)
+			err := b.db.QueryRow(fmt.Sprintf("SELECT url FROM %s WHERE title = ?", b.tableName()), title).Scan(&url)
 			if err != nil {
 				log.Printf("Error getting URL for vacancy %s: %v", title, err)
 				url = "#"
@@ -718,7 +718,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		for i, title := range douTitles {
 			// Get job URL from database
 			var url string
-			err := b.db.QueryRow("SELECT url FROM vacancies WHERE title = ?", title).Scan(&url)
+			err := b.db.QueryRow(fmt.Sprintf("SELECT url FROM %s WHERE title = ?", b.tableName()), title).Scan(&url)
 			if err != nil {
 				log.Printf("Error getting URL for vacancy %s: %v", title, err)
 				url = "#"
