@@ -127,7 +127,7 @@ func (b *Bot) isAdmin(userID int64) bool {
 func (b *Bot) adminMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 	return func(c telebot.Context) error {
 		if !b.isAdmin(c.Sender().ID) {
-			log.Printf("Unauthorized access attempt from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
+			log.Printf("Unauthorized access attempt (ID: %d)", c.Sender().ID)
 			return c.Send("Sorry, you are not authorized to use this bot.")
 		}
 		return next(c)
@@ -389,7 +389,7 @@ func (b *Bot) postDeftechVacancies() error {
 
 // handleStart handles the /start command
 func (b *Bot) handleStart(c telebot.Context) error {
-	log.Printf("Command /start received from user %s", c.Sender().Username)
+	log.Printf("Command /start received")
 
 	// Check if this is an ignore/unignore command via deep link
 	payload := strings.TrimSpace(c.Message().Payload)
@@ -437,7 +437,7 @@ func (b *Bot) handleStart(c telebot.Context) error {
 // handleHelp handles the /help command
 // handleHelp handles the /help command
 func (b *Bot) handleHelp(c telebot.Context) error {
-	log.Printf("Command /help received from user %s", c.Sender().Username)
+	log.Printf("Command /help received")
 	return c.Send(commandsText)
 }
 
@@ -546,7 +546,7 @@ func (b *Bot) findJobTitles(n *html.Node) []VacancyInfo {
 
 // handleGetDeftechAll handles the /deftech_all command
 func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
-	log.Printf("Command /deftech_all received from user %s", c.Sender().Username)
+	log.Printf("Command /deftech_all received")
 	// Show loading message
 	c.Send("Fetching vacancies from [https://deftech.dou.ua/vacancies/?city=Київ](https://deftech.dou.ua/vacancies/?city=%D0%9A%D0%B8%D1%97%D0%B2) →", telebot.ModeMarkdown)
 
@@ -596,7 +596,7 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 
 // handleGetDeftech handles the /deftech command
 func (b *Bot) handleGetDeftech(c telebot.Context) error {
-	log.Printf("Command /deftech received from user %s", c.Sender().Username)
+	log.Printf("Command /deftech received")
 	// Show loading message
 	c.Send("Fetching vacancies from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) →", telebot.ModeMarkdown)
 
@@ -659,7 +659,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 
 // handleGetDwarfEngineering handles the /dwarf_engineering command
 func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
-	log.Printf("Command /dwarf_engineering received from user %s", c.Sender().Username)
+	log.Printf("Command /dwarf_engineering received")
 	// Show loading message
 	c.Send("Fetching Dwarf Engineering vacancies →")
 
@@ -725,7 +725,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 
 // handleTruncate handles the /truncate command
 func (b *Bot) handleTruncate(c telebot.Context) error {
-	log.Printf("Command /truncate received from user %s", c.Sender().Username)
+	log.Printf("Command /truncate received")
 	query := fmt.Sprintf("DELETE FROM %s", b.tableName())
 	_, err := b.db.Exec(query)
 	if err != nil {
@@ -737,7 +737,7 @@ func (b *Bot) handleTruncate(c telebot.Context) error {
 
 // handleTestPost handles the /test_post command
 func (b *Bot) handleTestPost(c telebot.Context) error {
-	log.Printf("Command /test_post received from user %s", c.Sender().Username)
+	log.Printf("Command /test_post received")
 
 	if err := b.postMessage(); err != nil {
 		log.Printf("Error posting message: %v", err)
@@ -917,14 +917,14 @@ func collectText(n *html.Node, text *strings.Builder) {
 
 // handleText handles text messages
 func (b *Bot) handleText(c telebot.Context) error {
-	log.Printf("Text message received from user %s: %s", c.Sender().Username, c.Text())
+	log.Printf("Text message received: %s", c.Text())
 	// Echo the message back
 	return c.Send("You said: " + c.Text())
 }
 
 // handleCallback handles inline button callbacks
 func (b *Bot) handleCallback(c telebot.Context) error {
-	log.Printf("Callback received from user %s: %s", c.Sender().Username, c.Callback().Data)
+	log.Printf("Callback received: %s", c.Callback().Data)
 
 	// For now, just acknowledge the callback without functionality
 	return c.Respond(&telebot.CallbackResponse{Text: "Ignore functionality not implemented yet"})
