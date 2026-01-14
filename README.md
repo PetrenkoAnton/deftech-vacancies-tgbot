@@ -13,6 +13,12 @@ A Telegram bot that fetches and manages job listings from Dwarf Engineering and 
   - `/deftech_all` - Get all DefTech jobs with hide/show controls
   - `/deftech` - Get visible DefTech jobs only
   - `/truncate` - Clear all jobs from database
+  - `/test_post` - Post a test message to the configured Telegram group
+
+- **Automatic Posting**:
+  - Configurable periodic fetching and posting of **new** DefTech job listings to Telegram group
+  - Only posts when new jobs are discovered; logs otherwise
+  - Set `INTERVAL` in minutes to enable automatic job updates
 
 - **Database Features**:
   - SQLite database with migrations
@@ -37,7 +43,7 @@ go mod download
 2. Configure `.env`:
 ```bash
 cp .env.example .env
-# Add BOT_TOKEN and optional ADMIN_ID
+# Add BOT_TOKEN, optional ADMIN_ID, optional GROUP_ID, and optional INTERVAL (in minutes)
 ```
 
 ## Usage
@@ -56,6 +62,11 @@ go build -o bin/miltech-tgbot .
 - `/deftech_all` - Fetch all DefTech jobs with interactive hide/show links
 - `/deftech` - Show only visible (non-hidden) DefTech jobs
 - `/truncate` - Clear all jobs from database (admin only)
+- `/test_post` - Post a test message to the configured group
+
+### Automatic Posting
+
+If `INTERVAL` is set in the `.env` file (in minutes), the bot will automatically fetch DefTech job listings at the specified interval. It will only post to the configured Telegram group when **new jobs are discovered**. If no new jobs are found, it will simply log the check without posting anything. The `/deftech` command can still be used for manual fetching of all visible jobs.
 
 ### Hide/Show Functionality
 

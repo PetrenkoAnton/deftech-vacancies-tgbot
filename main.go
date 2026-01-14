@@ -26,9 +26,15 @@ func main() {
 	// Get admin ID from environment variable (optional)
 	adminID := os.Getenv("ADMIN_ID")
 
+	// Get group ID from environment variable (optional)
+	groupID := os.Getenv("GROUP_ID")
+
+	// Get interval from environment variable (optional)
+	intervalStr := os.Getenv("INTERVAL")
+
 	// Initialize bot
 	log.Println("Initializing Telegram bot...")
-	telegramBot, err := bot.New(botToken, adminID)
+	telegramBot, err := bot.New(botToken, adminID, groupID, intervalStr)
 	if err != nil {
 		log.Fatalf("Failed to initialize bot: %v", err)
 	}

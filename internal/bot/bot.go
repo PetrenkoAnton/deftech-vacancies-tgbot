@@ -41,10 +41,11 @@ type Bot struct {
 	db         *sql.DB
 	httpClient *http.Client
 	adminID    string
+	groupID    string
 }
 
 // New creates a new bot instance
-func New(token string, adminID string) (*Bot, error) {
+func New(token string, adminID string, groupID string, intervalStr string) (*Bot, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -76,10 +77,20 @@ func New(token string, adminID string) (*Bot, error) {
 		db:         db,
 		httpClient: httpClient,
 		adminID:    adminID,
+		groupID:    groupID,
 	}
 
 	// Register handlers
 	bot.registerHandlers()
+
+	// Start periodic posting if interval is set
+	if intervalStr != "" {
+		interval, err := strconv.Atoi(intervalStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid INTERVAL: %w", err)
+		}
+		go bot.startPeriodicPosting(time.Duration(interval) * time.Minute)
+	}
 
 	return bot, nil
 }
@@ -217,11 +228,129 @@ func (b *Bot) registerHandlers() {
 	// Truncate command handler
 	b.telebot.Handle("/truncate", b.handleTruncate)
 
+	// Test post command handler
+	b.telebot.Handle("/test_post", b.handleTestPost)
+
 	// Inline button callback handler
 	b.telebot.Handle(telebot.OnCallback, b.handleCallback)
 
 	// Default message handler
 	b.telebot.Handle(telebot.OnText, b.handleText)
+}
+
+// startPeriodicPosting starts a goroutine that posts messages every interval
+func (b *Bot) startPeriodicPosting(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	log.Printf("Starting periodic DefTech job posting every %v", interval)
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := b.postDeftechJobs(); err != nil {
+				log.Printf("Error in periodic DefTech posting: %v", err)
+			}
+		}
+	}
+}
+
+// postMessage posts a test message to the configured group
+func (b *Bot) postMessage() error {
+	if b.groupID == "" {
+		return fmt.Errorf("GROUP_ID not set")
+	}
+
+	groupIDInt, err := strconv.ParseInt(b.groupID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid GROUP_ID: %w", err)
+	}
+
+	chat := &telebot.Chat{ID: groupIDInt}
+	message := "This is a test message from the Miltech Job Bot."
+
+	_, err = b.telebot.Send(chat, message)
+	if err != nil {
+		return fmt.Errorf("error sending message to group: %w", err)
+	}
+
+	log.Println("Manual test message posted to group")
+	return nil
+}
+
+// postDeftechJobs fetches DefTech jobs and posts them to the configured group only if there are new jobs
+func (b *Bot) postDeftechJobs() error {
+	if b.groupID == "" {
+		return fmt.Errorf("GROUP_ID not set")
+	}
+
+	groupIDInt, err := strconv.ParseInt(b.groupID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid GROUP_ID: %w", err)
+	}
+
+	chat := &telebot.Chat{ID: groupIDInt}
+
+	log.Println("Fetching DefTech job listings for periodic posting...")
+
+	// Fetch job titles from the DefTech DOU.ua page
+	jobInfos, err := b.FetchJobTitlesFromDeftech()
+	if err != nil {
+		return fmt.Errorf("error fetching job titles from DefTech: %w", err)
+	}
+
+	// Check for new jobs and save them
+	var newJobInfos []JobInfo
+	for _, jobInfo := range jobInfos {
+		if !b.jobExists(jobInfo.Title) {
+			// This is a new job
+			err := b.saveJob(jobInfo.Title, jobInfo.URL)
+			if err != nil {
+				log.Printf("Error saving new job to DB: %v", err)
+			} else {
+				newJobInfos = append(newJobInfos, jobInfo)
+			}
+		}
+	}
+
+	// If no new jobs, just log and return
+	if len(newJobInfos) == 0 {
+		log.Println("No new DefTech jobs found - skipping group posting")
+		return nil
+	}
+
+	log.Printf("Found %d new DefTech jobs - posting to group", len(newJobInfos))
+
+	// Format the message with only new jobs
+	var message strings.Builder
+	message.WriteString("**New DefTech Job Listings:**\n\n")
+
+	for i, jobInfo := range newJobInfos {
+		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
+		if err != nil {
+			log.Printf("Error getting job ID for %s: %v", jobInfo.Title, err)
+			continue
+		}
+		action := "hide"
+		prefix := "ignore"
+		if hidden {
+			action = "show"
+			prefix = "unignore"
+		}
+		company := jobInfo.Company
+		if company == "" {
+			company = "-"
+		}
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
+	}
+
+	_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview)
+	if err != nil {
+		return fmt.Errorf("error sending new DefTech jobs to group: %w", err)
+	}
+
+	log.Printf("Posted %d new DefTech jobs to group", len(newJobInfos))
+	return nil
 }
 
 // handleStart handles the /start command
@@ -274,7 +403,8 @@ func (b *Bot) handleStart(c telebot.Context) error {
 
 	startText := "Hello! Welcome to the bot.\n\nAvailable commands:\n" +
 		"/start - Start the bot\n" +
-		"/help - Show this help message\n\n" +
+		"/help - Show this help message\n" +
+		"/test_post - Post a test message to the configured group\n\n" +
 		"/dwarf_engineering - Get Dwarf Engineering jobs\n" +
 		"/deftech - Fetch and show visible DefTech jobs\n\n" +
 		"/deftech_all - Get list from DefTech DOU.ua\n\n" +
@@ -293,9 +423,10 @@ func (b *Bot) handleHelp(c telebot.Context) error {
 	helpText := "Available commands:\n" +
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n" +
-		"/dwarf_engineering - Get Dwarf Engineering jobs from PeopleForce and DOU.ua\n" +
-		"/deftech_all - Get list from DefTech DOU.ua\n" +
+		"/test_post - Post a test message to the configured group\n" +
+		"/dwarf_engineering - Get Dwarf Engineering jobs\n" +
 		"/deftech - Fetch and show visible DefTech jobs\n" +
+		"/deftech_all - Get list from DefTech DOU.ua\n" +
 		"/truncate - Truncate jobs table"
 	return c.Send(helpText)
 }
@@ -308,7 +439,7 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 	// Fetch pages 1 and 2
 	pages := []int{1, 2}
 	for _, page := range pages {
-		jobTitles, err := b.fetchJobTitlesFromPage(page)
+		jobs, err := b.fetchJobTitlesFromPage(page)
 		if err != nil {
 			log.Printf("Error fetching page %d: %v", page, err)
 			// Continue with other pages even if one fails
@@ -316,13 +447,12 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 		}
 
 		// Add unique job titles and save to DB
-		for _, title := range jobTitles {
-			if !seen[title] {
-				seen[title] = true
-				allJobTitles = append(allJobTitles, title)
-				// Save to database
-				url := fmt.Sprintf("https://dwarfengineering.peopleforce.io/careers?page=%d", page)
-				if err := b.saveJob(title, url); err != nil {
+		for _, job := range jobs {
+			if !seen[job.Title] {
+				seen[job.Title] = true
+				allJobTitles = append(allJobTitles, job.Title)
+				// Save to database with correct URL
+				if err := b.saveJob(job.Title, job.URL); err != nil {
 					log.Printf("Error saving job to DB: %v", err)
 				}
 			}
@@ -333,7 +463,7 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 }
 
 // fetchJobTitlesFromPage fetches and parses job titles from a specific page
-func (b *Bot) fetchJobTitlesFromPage(page int) ([]string, error) {
+func (b *Bot) fetchJobTitlesFromPage(page int) ([]JobInfo, error) {
 	url := fmt.Sprintf("https://dwarfengineering.peopleforce.io/careers?page=%d", page)
 
 	resp, err := b.httpClient.Get(url)
@@ -351,8 +481,8 @@ func (b *Bot) fetchJobTitlesFromPage(page int) ([]string, error) {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
-	jobTitles := b.findJobTitles(doc)
-	return jobTitles, nil
+	jobs := b.findJobTitles(doc)
+	return jobs, nil
 }
 
 // extractText extracts text content from a node
@@ -372,23 +502,36 @@ func (b *Bot) collectText(n *html.Node, text *strings.Builder) {
 	}
 }
 
-// findJobTitles finds job titles in the HTML document
-func (b *Bot) findJobTitles(n *html.Node) []string {
-	var titles []string
+// findJobTitles finds job titles and URLs in the HTML document
+func (b *Bot) findJobTitles(n *html.Node) []JobInfo {
+	var jobs []JobInfo
 	if n.Type == html.ElementNode && n.Data == "h4" {
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			if c.Type == html.ElementNode && c.Data == "a" {
 				title := strings.TrimSpace(b.extractText(c))
-				if title != "" {
-					titles = append(titles, title)
+				var url string
+				for _, attr := range c.Attr {
+					if attr.Key == "href" {
+						url = attr.Val
+						// Make URL absolute if it's relative
+						if strings.HasPrefix(url, "/") {
+							url = "https://dwarfengineering.peopleforce.io" + url
+						} else if !strings.HasPrefix(url, "http") {
+							url = "https://dwarfengineering.peopleforce.io/" + url
+						}
+						break
+					}
+				}
+				if title != "" && url != "" {
+					jobs = append(jobs, JobInfo{Title: title, URL: url})
 				}
 			}
 		}
 	}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		titles = append(titles, b.findJobTitles(c)...)
+		jobs = append(jobs, b.findJobTitles(c)...)
 	}
-	return titles
+	return jobs
 }
 
 // handleGetDeftechAll handles the /deftech_all command
@@ -599,6 +742,23 @@ func (b *Bot) handleTruncate(c telebot.Context) error {
 		return c.Send("Error truncating jobs table")
 	}
 	return c.Send("Jobs table truncated successfully")
+}
+
+// handleTestPost handles the /test_post command
+func (b *Bot) handleTestPost(c telebot.Context) error {
+	if !b.isAdmin(c.Sender().ID) {
+		log.Printf("Unauthorized post command from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
+		return c.Send("Sorry, you are not authorized to use this bot.")
+	}
+
+	log.Printf("Command /test_post received from user %s", c.Sender().Username)
+
+	if err := b.postMessage(); err != nil {
+		log.Printf("Error posting message: %v", err)
+		return c.Send(fmt.Sprintf("Error posting message: %v", err))
+	}
+
+	return c.Send("Message posted to group successfully")
 }
 
 // RSSFeed represents the RSS feed structure
