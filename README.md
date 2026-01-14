@@ -46,6 +46,7 @@ cp .env.example .env
 # Required: ADMIN_ID - Your Telegram user ID (get from @userinfobot)
 # Required: GROUP_ID - Telegram group ID for automatic posting (get ID from @ShowJsonBot or similar)
 # Required: INTERVAL - Posting interval in minutes
+# Required: DEFTECH_URL - DefTech vacancies URL (default: https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2)
 # Optional: DB_NAME - Database file path (default: ./deftech-tgbot.db)
 # Optional: VACANCIES_TABLE - Database table name (default: vacancies)
 ```

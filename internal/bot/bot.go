@@ -55,10 +55,11 @@ type Bot struct {
 	groupID        string
 	dbName         string
 	vacanciesTable string
+	deftechURL     string
 }
 
 // New creates a new bot instance
-func New(token string, adminID string, groupID string, intervalStr string, dbName string, vacanciesTable string) (*Bot, error) {
+func New(token string, adminID string, groupID string, intervalStr string, dbName string, vacanciesTable string, deftechURL string) (*Bot, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -93,6 +94,7 @@ func New(token string, adminID string, groupID string, intervalStr string, dbNam
 		groupID:        groupID,
 		dbName:         dbName,
 		vacanciesTable: vacanciesTable,
+		deftechURL:     deftechURL,
 	}
 
 	// Apply admin middleware globally
@@ -817,7 +819,7 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 
 // FetchJobTitlesFromDeftech fetches and parses job titles from deftech.dou.ua page
 func (b *Bot) FetchJobTitlesFromDeftech() ([]VacancyInfo, error) {
-	url := "https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2"
+	url := b.deftechURL
 
 	resp, err := b.httpClient.Get(url)
 	if err != nil {

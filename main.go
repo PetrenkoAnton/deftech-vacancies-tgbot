@@ -41,6 +41,12 @@ func main() {
 		log.Fatal("INTERVAL environment variable is not set")
 	}
 
+	// Get deftech URL from environment variable (required)
+	deftechURL := os.Getenv("DEFTECH_URL")
+	if deftechURL == "" {
+		log.Fatal("DEFTECH_URL environment variable is not set")
+	}
+
 	// Get database name from environment variable (optional, default to ./deftech-tgbot.db)
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
@@ -55,7 +61,7 @@ func main() {
 
 	// Initialize bot
 	log.Println("Initializing Telegram bot →")
-	telegramBot, err := bot.New(botToken, adminID, groupID, intervalStr, dbName, vacanciesTable)
+	telegramBot, err := bot.New(botToken, adminID, groupID, intervalStr, dbName, vacanciesTable, deftechURL)
 	if err != nil {
 		log.Fatalf("Failed to initialize bot: %v", err)
 	}
