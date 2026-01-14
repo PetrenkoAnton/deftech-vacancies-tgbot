@@ -84,6 +84,9 @@ func New(token string, adminID string, groupID string, intervalStr string, dbNam
 		vacanciesTable: vacanciesTable,
 	}
 
+	// Apply admin middleware globally
+	bot.telebot.Use(bot.adminMiddleware)
+
 	// Register handlers
 	bot.registerHandlers()
 
@@ -111,6 +114,17 @@ func (b *Bot) isAdmin(userID int64) bool {
 		return true
 	}
 	return fmt.Sprintf("%d", userID) == b.adminID
+}
+
+// adminMiddleware checks if the user is authorized to use the bot
+func (b *Bot) adminMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
+	return func(c telebot.Context) error {
+		if !b.isAdmin(c.Sender().ID) {
+			log.Printf("Unauthorized access attempt from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
+			return c.Send("Sorry, you are not authorized to use this bot.")
+		}
+		return next(c)
+	}
 }
 
 // runMigrations runs database migrations
@@ -256,13 +270,13 @@ func (b *Bot) startPeriodicPosting(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	log.Printf("Starting periodic deftech vacancy posting every %v", interval)
+	log.Printf("Starting periodic new deftech vacancies posting every %v", interval)
 
 	for {
 		select {
 		case <-ticker.C:
 			if err := b.postDeftechVacancies(); err != nil {
-				log.Printf("Error in periodic deftech vacancy posting: %v", err)
+				log.Printf("Error in periodic new deftech vacancies posting: %v", err)
 			}
 		}
 	}
@@ -280,7 +294,7 @@ func (b *Bot) postMessage() error {
 	}
 
 	chat := &telebot.Chat{ID: groupIDInt}
-	message := "This is a test message from the Deftech Vacancy Bot."
+	message := "This is a test message from the Deftech Vacancies Bot."
 
 	_, err = b.telebot.Send(chat, message)
 	if err != nil {
@@ -368,11 +382,6 @@ func (b *Bot) postDeftechVacancies() error {
 
 // handleStart handles the /start command
 func (b *Bot) handleStart(c telebot.Context) error {
-	if !b.isAdmin(c.Sender().ID) {
-		log.Printf("Unauthorized access attempt from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
-		return c.Send("Sorry, you are not authorized to use this bot.")
-	}
-
 	log.Printf("Command /start received from user %s", c.Sender().Username)
 
 	// Check if this is an ignore/unignore command via deep link
@@ -427,11 +436,6 @@ func (b *Bot) handleStart(c telebot.Context) error {
 
 // handleHelp handles the /help command
 func (b *Bot) handleHelp(c telebot.Context) error {
-	if !b.isAdmin(c.Sender().ID) {
-		log.Printf("Unauthorized access attempt from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
-		return c.Send("Sorry, you are not authorized to use this bot.")
-	}
-
 	log.Printf("Command /help received from user %s", c.Sender().Username)
 	helpText := "Available commands:\n" +
 		"/start - Start the bot\n" +
@@ -549,11 +553,6 @@ func (b *Bot) findJobTitles(n *html.Node) []JobInfo {
 
 // handleGetDeftechAll handles the /deftech_all command
 func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
-	if !b.isAdmin(c.Sender().ID) {
-		log.Printf("Unauthorized access attempt from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
-		return c.Send("Sorry, you are not authorized to use this bot.")
-	}
-
 	log.Printf("Command /deftech_all received from user %s", c.Sender().Username)
 	// Show loading message
 	c.Send("Fetching job listings from [https://deftech.dou.ua/vacancies/?city=Київ](https://deftech.dou.ua/vacancies/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
@@ -604,11 +603,6 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 
 // handleGetDeftech handles the /deftech command
 func (b *Bot) handleGetDeftech(c telebot.Context) error {
-	if !b.isAdmin(c.Sender().ID) {
-		log.Printf("Unauthorized access attempt from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
-		return c.Send("Sorry, you are not authorized to use this bot.")
-	}
-
 	log.Printf("Command /deftech received from user %s", c.Sender().Username)
 	// Show loading message
 	c.Send("Fetching job listings from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
@@ -672,11 +666,6 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 
 // handleGetDwarfEngineering handles the /dwarf_engineering command
 func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
-	if !b.isAdmin(c.Sender().ID) {
-		log.Printf("Unauthorized access attempt from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
-		return c.Send("Sorry, you are not authorized to use this bot.")
-	}
-
 	log.Printf("Command /dwarf_engineering received from user %s", c.Sender().Username)
 	// Show loading message
 	c.Send("Fetching Dwarf Engineering job listings...")
@@ -743,11 +732,6 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 
 // handleTruncate handles the /truncate command
 func (b *Bot) handleTruncate(c telebot.Context) error {
-	if !b.isAdmin(c.Sender().ID) {
-		log.Printf("Unauthorized truncate command from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
-		return c.Send("Sorry, you are not authorized to use this bot.")
-	}
-
 	log.Printf("Command /truncate received from user %s", c.Sender().Username)
 	query := fmt.Sprintf("DELETE FROM %s", b.tableName())
 	_, err := b.db.Exec(query)
@@ -760,11 +744,6 @@ func (b *Bot) handleTruncate(c telebot.Context) error {
 
 // handleTestPost handles the /test_post command
 func (b *Bot) handleTestPost(c telebot.Context) error {
-	if !b.isAdmin(c.Sender().ID) {
-		log.Printf("Unauthorized post command from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
-		return c.Send("Sorry, you are not authorized to use this bot.")
-	}
-
 	log.Printf("Command /test_post received from user %s", c.Sender().Username)
 
 	if err := b.postMessage(); err != nil {
@@ -945,11 +924,6 @@ func collectText(n *html.Node, text *strings.Builder) {
 
 // handleText handles text messages
 func (b *Bot) handleText(c telebot.Context) error {
-	if !b.isAdmin(c.Sender().ID) {
-		log.Printf("Unauthorized text message from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
-		return c.Send("Sorry, you are not authorized to use this bot.")
-	}
-
 	log.Printf("Text message received from user %s: %s", c.Sender().Username, c.Text())
 	// Echo the message back
 	return c.Send("You said: " + c.Text())
@@ -957,11 +931,6 @@ func (b *Bot) handleText(c telebot.Context) error {
 
 // handleCallback handles inline button callbacks
 func (b *Bot) handleCallback(c telebot.Context) error {
-	if !b.isAdmin(c.Sender().ID) {
-		log.Printf("Unauthorized callback from user %s (ID: %d)", c.Sender().Username, c.Sender().ID)
-		return c.Respond(&telebot.CallbackResponse{Text: "Unauthorized"})
-	}
-
 	log.Printf("Callback received from user %s: %s", c.Sender().Username, c.Callback().Data)
 
 	// For now, just acknowledge the callback without functionality
