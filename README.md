@@ -12,7 +12,7 @@ A Telegram bot that fetches and manages job listings from Dwarf Engineering and 
   - `/dwarf_engineering` - Get Dwarf Engineering jobs (simple list)
   - `/deftech_all` - Get all DefTech jobs with hide/show controls
   - `/deftech` - Get visible DefTech jobs only
-  - `/truncate` - Clear all jobs from database
+  - `/truncate` - Clear all vacancies from database
   - `/test_post` - Post a test message to the configured Telegram group
 
 - **Automatic Posting**:

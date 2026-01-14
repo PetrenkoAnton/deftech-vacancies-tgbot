@@ -342,15 +342,15 @@ func (b *Bot) postDeftechVacancies() error {
 
 	// If no new vacancies, just log and return
 	if len(newJobInfos) == 0 {
-		log.Println("No new deftech vacancies found - skipping group posting")
+		log.Println("No new vacancies found - skipping group posting")
 		return nil
 	}
 
-	log.Printf("Found %d new deftech vacancies - posting to group", len(newJobInfos))
+	log.Printf("Found %d new vacancies - posting to group", len(newJobInfos))
 
 	// Format the message with only new vacancies
 	var message strings.Builder
-	message.WriteString("**New deftech vacancies:**\n\n")
+	message.WriteString("**New vacancies:**\n\n")
 
 	for i, jobInfo := range newJobInfos {
 		id, hidden, err := b.getVacancyIDAndHiddenByTitle(jobInfo.Title)
@@ -373,10 +373,10 @@ func (b *Bot) postDeftechVacancies() error {
 
 	_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview)
 	if err != nil {
-		return fmt.Errorf("error sending new deftech vacancies to group: %w", err)
+		return fmt.Errorf("error sending new vacancies to group: %w", err)
 	}
 
-	log.Printf("Posted %d new deftech vacancies to group", len(newJobInfos))
+	log.Printf("Posted %d new vacancies to group", len(newJobInfos))
 	return nil
 }
 
@@ -427,9 +427,9 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n" +
 		"/test_post - Post a test message to the configured group\n\n" +
-		"/deftech - Fetch and show visible DefTech jobs\n\n" +
-		"/dwarf_engineering - Get Dwarf Engineering jobs\n" +
-		"/deftech_all - Get list from DefTech DOU.ua\n\n" +
+		"/deftech - Fetch and show visible deftech vacancies\n\n" +
+		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
+		"/deftech_all - Get list from deftech.dou.ua\n\n" +
 		"/truncate - Truncate vacancies table"
 	return c.Send(startText)
 }
@@ -441,9 +441,9 @@ func (b *Bot) handleHelp(c telebot.Context) error {
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n" +
 		"/test_post - Post a test message to the configured group\n" +
-		"/deftech - Fetch and show visible DefTech vacancies\n" +
+		"/deftech - Fetch and show visible deftech vacancies\n" +
 		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
-		"/deftech_all - Get list from DefTech DOU.ua\n" +
+		"/deftech_all - Get list from deftech.dou.ua\n" +
 		"/truncate - Truncate vacancies table"
 	return c.Send(helpText)
 }
@@ -470,7 +470,7 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 				allJobTitles = append(allJobTitles, job.Title)
 				// Save to database with correct URL
 				if err := b.saveVacancy(job.Title, job.URL); err != nil {
-					log.Printf("Error saving job to DB: %v", err)
+					log.Printf("Error saving vacancy to DB: %v", err)
 				}
 			}
 		}
@@ -479,7 +479,7 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 	return allJobTitles, nil
 }
 
-// fetchJobTitlesFromPage fetches and parses job titles from a specific page
+// fetchJobTitlesFromPage fetches and parses vacancy titles from a specific page
 func (b *Bot) fetchJobTitlesFromPage(page int) ([]JobInfo, error) {
 	url := fmt.Sprintf("https://dwarfengineering.peopleforce.io/careers?page=%d", page)
 
@@ -519,7 +519,7 @@ func (b *Bot) collectText(n *html.Node, text *strings.Builder) {
 	}
 }
 
-// findJobTitles finds job titles and URLs in the HTML document
+// findJobTitles finds vacancy titles and URLs in the HTML document
 func (b *Bot) findJobTitles(n *html.Node) []JobInfo {
 	var vacancies []JobInfo
 	if n.Type == html.ElementNode && n.Data == "h4" {
@@ -555,25 +555,25 @@ func (b *Bot) findJobTitles(n *html.Node) []JobInfo {
 func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 	log.Printf("Command /deftech_all received from user %s", c.Sender().Username)
 	// Show loading message
-	c.Send("Fetching job listings from [https://deftech.dou.ua/vacancies/?city=Київ](https://deftech.dou.ua/vacancies/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
+	c.Send("Fetching vacancies from [https://deftech.dou.ua/vacancies/?city=Київ](https://deftech.dou.ua/vacancies/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
 
-	// Fetch job titles from the DefTech DOU.ua page
+	// Fetch vacancy titles from the deftech.dou.ua page
 	jobInfos, err := b.FetchJobTitlesFromDeftech()
 	if err != nil {
-		log.Printf("Error fetching job titles from DefTech: %v", err)
-		return c.Send(fmt.Sprintf("Error fetching job listings: %v", err))
+		log.Printf("Error fetching vacancy titles from deftech.dou.ua: %v", err)
+		return c.Send(fmt.Sprintf("Error fetching vacancies: %v", err))
 	}
 
 	// Save vacancies to database if not exists
 	for _, jobInfo := range jobInfos {
 		err := b.saveVacancy(jobInfo.Title, jobInfo.URL)
 		if err != nil {
-			log.Printf("Error saving job to DB: %v", err)
+			log.Printf("Error saving vacancy to DB: %v", err)
 		}
 	}
 
 	if len(jobInfos) == 0 {
-		return c.Send("No job listings found.")
+		return c.Send("No vacancies found.")
 	}
 
 	// Format and send the list as a simple numbered list
@@ -605,38 +605,38 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	log.Printf("Command /deftech received from user %s", c.Sender().Username)
 	// Show loading message
-	c.Send("Fetching job listings from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
+	c.Send("Fetching vacancies from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
 
 	// Fetch job titles from the deftech.dou.ua page
 	jobInfos, err := b.FetchJobTitlesFromDeftech()
 	if err != nil {
-		log.Printf("Error fetching job titles from DefTech: %v", err)
-		return c.Send(fmt.Sprintf("Error fetching job listings: %v", err))
+		log.Printf("Error fetching vacancies from deftech.dou.ua: %v", err)
+		return c.Send(fmt.Sprintf("Error fetching vacancies: %v", err))
 	}
 
-	// Save jobs to database if not exists
+	// Save vacancies to database if not exists
 	for _, jobInfo := range jobInfos {
 		err := b.saveVacancy(jobInfo.Title, jobInfo.URL)
 		if err != nil {
-			log.Printf("Error saving job to DB: %v", err)
+			log.Printf("Error saving vacancy to DB: %v", err)
 		}
 	}
 
-	// Filter jobInfos to only show visible jobs
+	// Filter jobInfos to only show visible vacancies
 	var visibleJobInfos []JobInfo
 	for _, jobInfo := range jobInfos {
 		_, hidden, err := b.getVacancyIDAndHiddenByTitle(jobInfo.Title)
 		if err != nil {
-			// If job doesn't exist in DB yet (just saved), it's visible by default
+			// If vacancy doesn't exist in DB yet (just saved), it's visible by default
 			visibleJobInfos = append(visibleJobInfos, jobInfo)
 		} else if !hidden {
-			// Job exists and is not hidden
+			// Vacancy exists and is not hidden
 			visibleJobInfos = append(visibleJobInfos, jobInfo)
 		}
 	}
 
 	if len(visibleJobInfos) == 0 {
-		return c.Send("No visible job listings found.")
+		return c.Send("No visible vacancies found.")
 	}
 
 	// Format and send the list as a simple numbered list
@@ -645,7 +645,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	for i, jobInfo := range visibleJobInfos {
 		id, hidden, err := b.getVacancyIDAndHiddenByTitle(jobInfo.Title)
 		if err != nil {
-			log.Printf("Error getting job ID for %s: %v", jobInfo.Title, err)
+			log.Printf("Error getting vacancy ID for %s: %v", jobInfo.Title, err)
 			continue
 		}
 		action := "hide"
@@ -676,7 +676,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	// Fetch from PeopleForce
 	peopleforceTitlesRaw, err := b.fetchJobTitles()
 	if err != nil {
-		log.Printf("Error fetching PeopleForce job titles: %v", err)
+		log.Printf("Error fetching vacancies from peopleforce.io: %v", err)
 		// Continue even if one source fails
 	} else {
 		peopleforceTitles = peopleforceTitlesRaw
@@ -685,14 +685,14 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	// Fetch from DOU.ua RSS
 	douTitlesRaw, err := b.fetchJobTitlesFromDOU()
 	if err != nil {
-		log.Printf("Error fetching DOU.ua job titles: %v", err)
+		log.Printf("Error fetching vacancies from jobs.dou.ua: %v", err)
 		// Continue even if one source fails
 	} else {
 		douTitles = douTitlesRaw
 	}
 
 	if len(peopleforceTitles) == 0 && len(douTitles) == 0 {
-		return c.Send("No job listings found from either source.")
+		return c.Send("No vacancies found from either source.")
 	}
 
 	// Format and send the list
@@ -718,9 +718,9 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		for i, title := range douTitles {
 			// Get job URL from database
 			var url string
-			err := b.db.QueryRow("SELECT url FROM jobs WHERE title = ?", title).Scan(&url)
+			err := b.db.QueryRow("SELECT url FROM vacancies WHERE title = ?", title).Scan(&url)
 			if err != nil {
-				log.Printf("Error getting URL for job %s: %v", title, err)
+				log.Printf("Error getting URL for vacancy %s: %v", title, err)
 				url = "#"
 			}
 			message.WriteString(fmt.Sprintf("%d. [%s](%s)\n", i+1, title, url))
@@ -751,7 +751,7 @@ func (b *Bot) handleTestPost(c telebot.Context) error {
 		return c.Send(fmt.Sprintf("Error posting message: %v", err))
 	}
 
-	return c.Send("Message posted to group successfully")
+	return c.Send("Test message posted to group successfully")
 }
 
 // RSSFeed represents the RSS feed structure
@@ -796,8 +796,8 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 		return nil, fmt.Errorf("failed to parse RSS feed: %w", err)
 	}
 
-	// Extract job titles from RSS items
-	var jobTitles []string
+	// Extract vacancy titles from RSS items
+	var vacancyTitles []string
 	for _, item := range feed.Channel.Items {
 		if item.Title != "" {
 			// Clean up the title - remove location suffix if present (e.g., " в Dwarf Engineering, Київ")
@@ -807,16 +807,16 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 				title = title[:idx]
 			}
 			if title != "" {
-				jobTitles = append(jobTitles, title)
+				vacancyTitles = append(vacancyTitles, title)
 				// Save to database
 				if err := b.saveVacancy(title, item.Link); err != nil {
-					log.Printf("Error saving job to DB: %v", err)
+					log.Printf("Error saving vacancy to DB: %v", err)
 				}
 			}
 		}
 	}
 
-	return jobTitles, nil
+	return vacancyTitles, nil
 }
 
 // FetchJobTitlesFromDeftech fetches and parses job titles from deftech.dou.ua page
