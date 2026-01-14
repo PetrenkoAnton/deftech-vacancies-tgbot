@@ -609,7 +609,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	// Fetch job titles from the deftech.dou.ua page
 	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
 	if err != nil {
-		log.Printf("Error fetching vacancies from deftech.dou.ua: %v", err)
+		log.Printf("Error fetching vacancies from %s: %v", b.deftechURL, err)
 		return c.Send(fmt.Sprintf("Error fetching vacancies: %v", err))
 	}
 
