@@ -24,7 +24,12 @@ A Telegram bot that fetches and manages job listings from Dwarf Engineering and 
   - SQLite database with migrations
   - Job persistence and deduplication
   - Hide/show functionality for DefTech jobs
-  - Admin-only access control
+  - Centralized admin authorization via middleware
+
+- **Security**:
+  - All bot commands require admin authorization
+  - Centralized middleware checks `ADMIN_ID` for all requests
+  - Unauthorized users receive access denied messages
 
 ## Prerequisites
 
@@ -43,8 +48,12 @@ go mod download
 2. Configure `.env`:
 ```bash
 cp .env.example .env
-# Add BOT_TOKEN, optional ADMIN_ID, optional GROUP_ID, optional INTERVAL (in minutes)
-# optional DB_NAME (default: ./deftech-tgbot.db), optional VACANCIES_TABLE (default: vacancies)
+# Required: BOT_TOKEN from @BotFather
+# Required: ADMIN_ID - Your Telegram user ID (get from @userinfobot)
+# Optional: GROUP_ID - Telegram group ID for automatic posting
+# Optional: INTERVAL - Posting interval in minutes
+# Optional: DB_NAME - Database file path (default: ./deftech-tgbot.db)
+# Optional: VACANCIES_TABLE - Database table name (default: vacancies)
 ```
 
 ## Usage
@@ -57,6 +66,8 @@ go build -o bin/miltech-tgbot .
 
 ### Commands
 
+**Note**: All commands require admin authorization. Configure `ADMIN_ID` in your `.env` file.
+
 - `/start` - Welcome message and command overview
 - `/help` - Show available commands
 - `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + DOU.ua)
@@ -68,6 +79,15 @@ go build -o bin/miltech-tgbot .
 ### Automatic Posting
 
 If `INTERVAL` is set in the `.env` file (in minutes), the bot will automatically fetch DefTech job listings at the specified interval. It will only post to the configured Telegram group when **new jobs are discovered**. If no new jobs are found, it will simply log the check without posting anything. The `/deftech` command can still be used for manual fetching of all visible jobs.
+
+### Admin Authorization
+
+All bot commands require admin authorization. The bot uses centralized middleware to check the `ADMIN_ID` environment variable against the user's Telegram ID for every request:
+
+- **Required**: Set `ADMIN_ID` in your `.env` file to your Telegram user ID
+- **How to get your ID**: Send `/start` to [@userinfobot](https://t.me/userinfobot)
+- **Access Control**: Unauthorized users will receive "Sorry, you are not authorized to use this bot." messages
+- **Development**: If `ADMIN_ID` is not set, all users are allowed (for development purposes)
 
 ### Hide/Show Functionality
 
