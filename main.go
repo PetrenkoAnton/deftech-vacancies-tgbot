@@ -32,9 +32,21 @@ func main() {
 	// Get interval from environment variable (optional)
 	intervalStr := os.Getenv("INTERVAL")
 
+	// Get database name from environment variable (optional, default to ./deftech-tgbot.db)
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "./deftech-tgbot.db"
+	}
+
+	// Get vacancies table name from environment variable (optional, default to vacancies)
+	vacanciesTable := os.Getenv("VACANCIES_TABLE")
+	if vacanciesTable == "" {
+		vacanciesTable = "vacancies"
+	}
+
 	// Initialize bot
 	log.Println("Initializing Telegram bot...")
-	telegramBot, err := bot.New(botToken, adminID, groupID, intervalStr)
+	telegramBot, err := bot.New(botToken, adminID, groupID, intervalStr, dbName, vacanciesTable)
 	if err != nil {
 		log.Fatalf("Failed to initialize bot: %v", err)
 	}

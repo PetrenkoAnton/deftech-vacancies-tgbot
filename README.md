@@ -43,7 +43,8 @@ go mod download
 2. Configure `.env`:
 ```bash
 cp .env.example .env
-# Add BOT_TOKEN, optional ADMIN_ID, optional GROUP_ID, and optional INTERVAL (in minutes)
+# Add BOT_TOKEN, optional ADMIN_ID, optional GROUP_ID, optional INTERVAL (in minutes)
+# optional DB_NAME (default: ./deftech-tgbot.db), optional VACANCIES_TABLE (default: vacancies)
 ```
 
 ## Usage
@@ -81,6 +82,6 @@ miltech-tgbot/
 ├── main.go              # Application entry point
 ├── go.mod               # Go module dependencies
 ├── .env                 # Environment configuration
-├── jobs.db              # SQLite database (auto-created)
+├── deftech-tgbot.db     # SQLite database (auto-created, configurable via DB_NAME)
 └── bin/                 # Compiled binaries
 ```

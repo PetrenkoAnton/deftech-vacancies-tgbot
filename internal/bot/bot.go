@@ -19,8 +19,8 @@ import (
 	telebot "gopkg.in/telebot.v3"
 )
 
-// Job represents a job listing
-type Job struct {
+// Vacancy represents a vacancy listing
+type Vacancy struct {
 	ID        int       `json:"id"`
 	Title     string    `json:"title"`
 	URL       string    `json:"url"`
@@ -28,7 +28,7 @@ type Job struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// JobInfo represents job information with hot status
+// JobInfo represents vacancy information with company
 type JobInfo struct {
 	Title   string
 	Company string
@@ -37,15 +37,17 @@ type JobInfo struct {
 
 // Bot represents the Telegram bot instance
 type Bot struct {
-	telebot    *telebot.Bot
-	db         *sql.DB
-	httpClient *http.Client
-	adminID    string
-	groupID    string
+	telebot        *telebot.Bot
+	db             *sql.DB
+	httpClient     *http.Client
+	adminID        string
+	groupID        string
+	dbName         string
+	vacanciesTable string
 }
 
 // New creates a new bot instance
-func New(token string, adminID string, groupID string, intervalStr string) (*Bot, error) {
+func New(token string, adminID string, groupID string, intervalStr string, dbName string, vacanciesTable string) (*Bot, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -62,7 +64,7 @@ func New(token string, adminID string, groupID string, intervalStr string) (*Bot
 	}
 
 	// Initialize database
-	db, err := sql.Open("sqlite3", "./jobs.db")
+	db, err := sql.Open("sqlite3", dbName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -73,11 +75,13 @@ func New(token string, adminID string, groupID string, intervalStr string) (*Bot
 	}
 
 	bot := &Bot{
-		telebot:    b,
-		db:         db,
-		httpClient: httpClient,
-		adminID:    adminID,
-		groupID:    groupID,
+		telebot:        b,
+		db:             db,
+		httpClient:     httpClient,
+		adminID:        adminID,
+		groupID:        groupID,
+		dbName:         dbName,
+		vacanciesTable: vacanciesTable,
 	}
 
 	// Register handlers
@@ -93,6 +97,11 @@ func New(token string, adminID string, groupID string, intervalStr string) (*Bot
 	}
 
 	return bot, nil
+}
+
+// tableName returns the vacancies table name
+func (b *Bot) tableName() string {
+	return b.vacanciesTable
 }
 
 // isAdmin checks if the user is authorized to use the bot
@@ -124,47 +133,51 @@ func runMigrations(db *sql.DB) error {
 	return nil
 }
 
-// saveJob saves a job to the database
-func (b *Bot) saveJob(title, url string) error {
-	if b.jobExists(title) {
+// saveVacancy saves a vacancy to the database
+func (b *Bot) saveVacancy(title, url string) error {
+	if b.vacancyExists(title) {
 		return nil // already exists
 	}
-	query := `INSERT INTO jobs (title, url, created_at, is_hidden) VALUES (?, ?, ?, FALSE)`
+	query := fmt.Sprintf(`INSERT INTO %s (title, url, created_at, is_hidden) VALUES (?, ?, ?, FALSE)`, b.tableName())
 	_, err := b.db.Exec(query, title, url, time.Now())
 	return err
 }
 
-// jobExists checks if a job with the given title already exists
-func (b *Bot) jobExists(title string) bool {
+// vacancyExists checks if a vacancy with the given title already exists
+func (b *Bot) vacancyExists(title string) bool {
 	var count int
-	err := b.db.QueryRow("SELECT COUNT(*) FROM jobs WHERE title = ?", title).Scan(&count)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE title = ?", b.tableName())
+	err := b.db.QueryRow(query, title).Scan(&count)
 	return err == nil && count > 0
 }
 
-// getJobIDAndHiddenByTitle gets the job ID and hidden status by title
-func (b *Bot) getJobIDAndHiddenByTitle(title string) (int, bool, error) {
+// getVacancyIDAndHiddenByTitle gets the vacancy ID and hidden status by title
+func (b *Bot) getVacancyIDAndHiddenByTitle(title string) (int, bool, error) {
 	var id int
 	var hidden bool
-	err := b.db.QueryRow("SELECT id, is_hidden FROM jobs WHERE title = ?", title).Scan(&id, &hidden)
+	query := fmt.Sprintf("SELECT id, is_hidden FROM %s WHERE title = ?", b.tableName())
+	err := b.db.QueryRow(query, title).Scan(&id, &hidden)
 	return id, hidden, err
 }
 
-// setJobHidden sets the hidden status of a job by ID
-func (b *Bot) setJobHidden(id int, hidden bool) error {
-	_, err := b.db.Exec("UPDATE jobs SET is_hidden = ? WHERE id = ?", hidden, id)
+// setVacancyHidden sets the hidden status of a vacancy by ID
+func (b *Bot) setVacancyHidden(id int, hidden bool) error {
+	query := fmt.Sprintf("UPDATE %s SET is_hidden = ? WHERE id = ?", b.tableName())
+	_, err := b.db.Exec(query, hidden, id)
 	return err
 }
 
-// getJobTitleByID gets the job title by ID
-func (b *Bot) getJobTitleByID(id int) (string, error) {
+// getVacancyTitleByID gets the vacancy title by ID
+func (b *Bot) getVacancyTitleByID(id int) (string, error) {
 	var title string
-	err := b.db.QueryRow("SELECT title FROM jobs WHERE id = ?", id).Scan(&title)
+	query := fmt.Sprintf("SELECT title FROM %s WHERE id = ?", b.tableName())
+	err := b.db.QueryRow(query, id).Scan(&title)
 	return title, err
 }
 
-// getJobs retrieves jobs from the database
-func (b *Bot) getJobs() ([]Job, error) {
-	query := `SELECT id, title, url, created_at, is_hidden FROM jobs ORDER BY created_at ASC`
+// getVacancies retrieves vacancies from the database
+func (b *Bot) getVacancies() ([]Vacancy, error) {
+	query := fmt.Sprintf(`SELECT id, title, url, created_at, is_hidden FROM %s ORDER BY created_at ASC`, b.tableName())
 
 	rows, err := b.db.Query(query)
 	if err != nil {
@@ -172,22 +185,22 @@ func (b *Bot) getJobs() ([]Job, error) {
 	}
 	defer rows.Close()
 
-	var jobs []Job
+	var vacancies []Vacancy
 	for rows.Next() {
-		var job Job
-		err := rows.Scan(&job.ID, &job.Title, &job.URL, &job.CreatedAt, &job.IsHidden)
+		var vacancy Vacancy
+		err := rows.Scan(&vacancy.ID, &vacancy.Title, &vacancy.URL, &vacancy.CreatedAt, &vacancy.IsHidden)
 		if err != nil {
 			return nil, err
 		}
-		jobs = append(jobs, job)
+		vacancies = append(vacancies, vacancy)
 	}
 
-	return jobs, rows.Err()
+	return vacancies, rows.Err()
 }
 
-// getVisibleJobs retrieves all non-hidden jobs from the database
-func (b *Bot) getVisibleJobs() ([]Job, error) {
-	query := `SELECT id, title, url, created_at, is_hidden FROM jobs WHERE is_hidden = FALSE ORDER BY created_at ASC`
+// getVisibleVacancies retrieves all non-hidden vacancies from the database
+func (b *Bot) getVisibleVacancies() ([]Vacancy, error) {
+	query := fmt.Sprintf(`SELECT id, title, url, created_at, is_hidden FROM %s WHERE is_hidden = FALSE ORDER BY created_at ASC`, b.tableName())
 
 	rows, err := b.db.Query(query)
 	if err != nil {
@@ -195,17 +208,17 @@ func (b *Bot) getVisibleJobs() ([]Job, error) {
 	}
 	defer rows.Close()
 
-	var jobs []Job
+	var vacancies []Vacancy
 	for rows.Next() {
-		var job Job
-		err := rows.Scan(&job.ID, &job.Title, &job.URL, &job.CreatedAt, &job.IsHidden)
+		var vacancy Vacancy
+		err := rows.Scan(&vacancy.ID, &vacancy.Title, &vacancy.URL, &vacancy.CreatedAt, &vacancy.IsHidden)
 		if err != nil {
 			return nil, err
 		}
-		jobs = append(jobs, job)
+		vacancies = append(vacancies, vacancy)
 	}
 
-	return jobs, rows.Err()
+	return vacancies, rows.Err()
 }
 
 // registerHandlers registers all bot command and message handlers
@@ -216,13 +229,13 @@ func (b *Bot) registerHandlers() {
 	// Help command handler
 	b.telebot.Handle("/help", b.handleHelp)
 
-	// Get Dwarf Engineering jobs command handler
+	// Get Dwarf Engineering vacancies command handler
 	b.telebot.Handle("/dwarf_engineering", b.handleGetDwarfEngineering)
 
-	// Get list DefTech command handler
+	// Get list deftech command handler
 	b.telebot.Handle("/deftech_all", b.handleGetDeftechAll)
 
-	// Get visible DefTech jobs command handler
+	// Get visible deftech vacancies command handler
 	b.telebot.Handle("/deftech", b.handleGetDeftech)
 
 	// Truncate command handler
@@ -243,13 +256,13 @@ func (b *Bot) startPeriodicPosting(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	log.Printf("Starting periodic DefTech job posting every %v", interval)
+	log.Printf("Starting periodic deftech vacancy posting every %v", interval)
 
 	for {
 		select {
 		case <-ticker.C:
-			if err := b.postDeftechJobs(); err != nil {
-				log.Printf("Error in periodic DefTech posting: %v", err)
+			if err := b.postDeftechVacancies(); err != nil {
+				log.Printf("Error in periodic deftech vacancy posting: %v", err)
 			}
 		}
 	}
@@ -267,7 +280,7 @@ func (b *Bot) postMessage() error {
 	}
 
 	chat := &telebot.Chat{ID: groupIDInt}
-	message := "This is a test message from the Miltech Job Bot."
+	message := "This is a test message from the Deftech Vacancy Bot."
 
 	_, err = b.telebot.Send(chat, message)
 	if err != nil {
@@ -278,8 +291,8 @@ func (b *Bot) postMessage() error {
 	return nil
 }
 
-// postDeftechJobs fetches DefTech jobs and posts them to the configured group only if there are new jobs
-func (b *Bot) postDeftechJobs() error {
+// postDeftechVacancies fetches deftech vacancies and posts them to the configured group only if there are new vacancies
+func (b *Bot) postDeftechVacancies() error {
 	if b.groupID == "" {
 		return fmt.Errorf("GROUP_ID not set")
 	}
@@ -291,44 +304,44 @@ func (b *Bot) postDeftechJobs() error {
 
 	chat := &telebot.Chat{ID: groupIDInt}
 
-	log.Println("Fetching DefTech job listings for periodic posting...")
+	log.Println("Fetching deftech vacancy listings for periodic posting...")
 
-	// Fetch job titles from the DefTech DOU.ua page
+	// Fetch vacancy titles from the deftech.dou.ua/jobs page
 	jobInfos, err := b.FetchJobTitlesFromDeftech()
 	if err != nil {
-		return fmt.Errorf("error fetching job titles from DefTech: %w", err)
+		return fmt.Errorf("error fetching vacancy titles from deftech: %w", err)
 	}
 
 	// Check for new jobs and save them
 	var newJobInfos []JobInfo
 	for _, jobInfo := range jobInfos {
-		if !b.jobExists(jobInfo.Title) {
-			// This is a new job
-			err := b.saveJob(jobInfo.Title, jobInfo.URL)
+		if !b.vacancyExists(jobInfo.Title) {
+			// This is a new vacancy
+			err := b.saveVacancy(jobInfo.Title, jobInfo.URL)
 			if err != nil {
-				log.Printf("Error saving new job to DB: %v", err)
+				log.Printf("Error saving new vacancy to DB: %v", err)
 			} else {
 				newJobInfos = append(newJobInfos, jobInfo)
 			}
 		}
 	}
 
-	// If no new jobs, just log and return
+	// If no new vacancies, just log and return
 	if len(newJobInfos) == 0 {
-		log.Println("No new DefTech jobs found - skipping group posting")
+		log.Println("No new deftech vacancies found - skipping group posting")
 		return nil
 	}
 
-	log.Printf("Found %d new DefTech jobs - posting to group", len(newJobInfos))
+	log.Printf("Found %d new deftech vacancies - posting to group", len(newJobInfos))
 
-	// Format the message with only new jobs
+	// Format the message with only new vacancies
 	var message strings.Builder
-	message.WriteString("**New DefTech Job Listings:**\n\n")
+	message.WriteString("**New deftech vacancies:**\n\n")
 
 	for i, jobInfo := range newJobInfos {
-		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
+		id, hidden, err := b.getVacancyIDAndHiddenByTitle(jobInfo.Title)
 		if err != nil {
-			log.Printf("Error getting job ID for %s: %v", jobInfo.Title, err)
+			log.Printf("Error getting vacancy ID for %s: %v", jobInfo.Title, err)
 			continue
 		}
 		action := "hide"
@@ -346,10 +359,10 @@ func (b *Bot) postDeftechJobs() error {
 
 	_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview)
 	if err != nil {
-		return fmt.Errorf("error sending new DefTech jobs to group: %w", err)
+		return fmt.Errorf("error sending new deftech vacancies to group: %w", err)
 	}
 
-	log.Printf("Posted %d new DefTech jobs to group", len(newJobInfos))
+	log.Printf("Posted %d new deftech vacancies to group", len(newJobInfos))
 	return nil
 }
 
@@ -370,14 +383,14 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		if err != nil {
 			return c.Send("Invalid ignore ID")
 		}
-		title, err := b.getJobTitleByID(id)
+		title, err := b.getVacancyTitleByID(id)
 		if err != nil {
-			log.Printf("Error getting title for job %d: %v", id, err)
+			log.Printf("Error getting title for vacancy %d: %v", id, err)
 			return c.Send("Error ignoring job")
 		}
-		err = b.setJobHidden(id, true)
+		err = b.setVacancyHidden(id, true)
 		if err != nil {
-			log.Printf("Error hiding job %d: %v", id, err)
+			log.Printf("Error hiding vacancy %d: %v", id, err)
 			return c.Send("Error hiding job")
 		}
 		return c.Send(fmt.Sprintf("%s is hidden", title))
@@ -388,14 +401,14 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		if err != nil {
 			return c.Send("Invalid unignore ID")
 		}
-		title, err := b.getJobTitleByID(id)
+		title, err := b.getVacancyTitleByID(id)
 		if err != nil {
-			log.Printf("Error getting title for job %d: %v", id, err)
+			log.Printf("Error getting title for vacancy %d: %v", id, err)
 			return c.Send("Error showing job")
 		}
-		err = b.setJobHidden(id, false)
+		err = b.setVacancyHidden(id, false)
 		if err != nil {
-			log.Printf("Error showing job %d: %v", id, err)
+			log.Printf("Error showing vacancy %d: %v", id, err)
 			return c.Send("Error showing job")
 		}
 		return c.Send(fmt.Sprintf("%s is shown", title))
@@ -405,10 +418,10 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n" +
 		"/test_post - Post a test message to the configured group\n\n" +
-		"/dwarf_engineering - Get Dwarf Engineering jobs\n" +
 		"/deftech - Fetch and show visible DefTech jobs\n\n" +
+		"/dwarf_engineering - Get Dwarf Engineering jobs\n" +
 		"/deftech_all - Get list from DefTech DOU.ua\n\n" +
-		"/truncate - Truncate jobs table"
+		"/truncate - Truncate vacancies table"
 	return c.Send(startText)
 }
 
@@ -424,14 +437,14 @@ func (b *Bot) handleHelp(c telebot.Context) error {
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n" +
 		"/test_post - Post a test message to the configured group\n" +
-		"/dwarf_engineering - Get Dwarf Engineering jobs\n" +
-		"/deftech - Fetch and show visible DefTech jobs\n" +
+		"/deftech - Fetch and show visible DefTech vacancies\n" +
+		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
 		"/deftech_all - Get list from DefTech DOU.ua\n" +
-		"/truncate - Truncate jobs table"
+		"/truncate - Truncate vacancies table"
 	return c.Send(helpText)
 }
 
-// fetchJobTitles fetches and parses job titles from all careers pages
+// fetchJobTitles fetches and parses vacancy titles from all careers pages
 func (b *Bot) fetchJobTitles() ([]string, error) {
 	var allJobTitles []string
 	seen := make(map[string]bool) // To avoid duplicates
@@ -439,20 +452,20 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 	// Fetch pages 1 and 2
 	pages := []int{1, 2}
 	for _, page := range pages {
-		jobs, err := b.fetchJobTitlesFromPage(page)
+		vacancies, err := b.fetchJobTitlesFromPage(page)
 		if err != nil {
 			log.Printf("Error fetching page %d: %v", page, err)
 			// Continue with other pages even if one fails
 			continue
 		}
 
-		// Add unique job titles and save to DB
-		for _, job := range jobs {
+		// Add unique vacancy titles and save to DB
+		for _, job := range vacancies {
 			if !seen[job.Title] {
 				seen[job.Title] = true
 				allJobTitles = append(allJobTitles, job.Title)
 				// Save to database with correct URL
-				if err := b.saveJob(job.Title, job.URL); err != nil {
+				if err := b.saveVacancy(job.Title, job.URL); err != nil {
 					log.Printf("Error saving job to DB: %v", err)
 				}
 			}
@@ -481,8 +494,8 @@ func (b *Bot) fetchJobTitlesFromPage(page int) ([]JobInfo, error) {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
-	jobs := b.findJobTitles(doc)
-	return jobs, nil
+	vacancies := b.findJobTitles(doc)
+	return vacancies, nil
 }
 
 // extractText extracts text content from a node
@@ -504,7 +517,7 @@ func (b *Bot) collectText(n *html.Node, text *strings.Builder) {
 
 // findJobTitles finds job titles and URLs in the HTML document
 func (b *Bot) findJobTitles(n *html.Node) []JobInfo {
-	var jobs []JobInfo
+	var vacancies []JobInfo
 	if n.Type == html.ElementNode && n.Data == "h4" {
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			if c.Type == html.ElementNode && c.Data == "a" {
@@ -523,15 +536,15 @@ func (b *Bot) findJobTitles(n *html.Node) []JobInfo {
 					}
 				}
 				if title != "" && url != "" {
-					jobs = append(jobs, JobInfo{Title: title, URL: url})
+					vacancies = append(vacancies, JobInfo{Title: title, URL: url})
 				}
 			}
 		}
 	}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		jobs = append(jobs, b.findJobTitles(c)...)
+		vacancies = append(vacancies, b.findJobTitles(c)...)
 	}
-	return jobs
+	return vacancies
 }
 
 // handleGetDeftechAll handles the /deftech_all command
@@ -543,7 +556,7 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 
 	log.Printf("Command /deftech_all received from user %s", c.Sender().Username)
 	// Show loading message
-	c.Send("Fetching job listings from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
+	c.Send("Fetching job listings from [https://deftech.dou.ua/vacancies/?city=Київ](https://deftech.dou.ua/vacancies/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
 
 	// Fetch job titles from the DefTech DOU.ua page
 	jobInfos, err := b.FetchJobTitlesFromDeftech()
@@ -552,9 +565,9 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 		return c.Send(fmt.Sprintf("Error fetching job listings: %v", err))
 	}
 
-	// Save jobs to database if not exists
+	// Save vacancies to database if not exists
 	for _, jobInfo := range jobInfos {
-		err := b.saveJob(jobInfo.Title, jobInfo.URL)
+		err := b.saveVacancy(jobInfo.Title, jobInfo.URL)
 		if err != nil {
 			log.Printf("Error saving job to DB: %v", err)
 		}
@@ -568,7 +581,7 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 	var message strings.Builder
 
 	for i, jobInfo := range jobInfos {
-		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
+		id, hidden, err := b.getVacancyIDAndHiddenByTitle(jobInfo.Title)
 		if err != nil {
 			log.Printf("Error getting job ID for %s: %v", jobInfo.Title, err)
 			continue
@@ -600,7 +613,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	// Show loading message
 	c.Send("Fetching job listings from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
 
-	// Fetch job titles from the DefTech DOU.ua page
+	// Fetch job titles from the deftech.dou.ua page
 	jobInfos, err := b.FetchJobTitlesFromDeftech()
 	if err != nil {
 		log.Printf("Error fetching job titles from DefTech: %v", err)
@@ -609,7 +622,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 
 	// Save jobs to database if not exists
 	for _, jobInfo := range jobInfos {
-		err := b.saveJob(jobInfo.Title, jobInfo.URL)
+		err := b.saveVacancy(jobInfo.Title, jobInfo.URL)
 		if err != nil {
 			log.Printf("Error saving job to DB: %v", err)
 		}
@@ -618,7 +631,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	// Filter jobInfos to only show visible jobs
 	var visibleJobInfos []JobInfo
 	for _, jobInfo := range jobInfos {
-		_, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
+		_, hidden, err := b.getVacancyIDAndHiddenByTitle(jobInfo.Title)
 		if err != nil {
 			// If job doesn't exist in DB yet (just saved), it's visible by default
 			visibleJobInfos = append(visibleJobInfos, jobInfo)
@@ -636,7 +649,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	var message strings.Builder
 
 	for i, jobInfo := range visibleJobInfos {
-		id, hidden, err := b.getJobIDAndHiddenByTitle(jobInfo.Title)
+		id, hidden, err := b.getVacancyIDAndHiddenByTitle(jobInfo.Title)
 		if err != nil {
 			log.Printf("Error getting job ID for %s: %v", jobInfo.Title, err)
 			continue
@@ -736,12 +749,13 @@ func (b *Bot) handleTruncate(c telebot.Context) error {
 	}
 
 	log.Printf("Command /truncate received from user %s", c.Sender().Username)
-	_, err := b.db.Exec("DELETE FROM jobs")
+	query := fmt.Sprintf("DELETE FROM %s", b.tableName())
+	_, err := b.db.Exec(query)
 	if err != nil {
-		log.Printf("Error truncating jobs: %v", err)
-		return c.Send("Error truncating jobs table")
+		log.Printf("Error truncating vacancies: %v", err)
+		return c.Send("Error truncating vacancies table")
 	}
-	return c.Send("Jobs table truncated successfully")
+	return c.Send("Vacancies table truncated successfully")
 }
 
 // handleTestPost handles the /test_post command
@@ -816,7 +830,7 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 			if title != "" {
 				jobTitles = append(jobTitles, title)
 				// Save to database
-				if err := b.saveJob(title, item.Link); err != nil {
+				if err := b.saveVacancy(title, item.Link); err != nil {
 					log.Printf("Error saving job to DB: %v", err)
 				}
 			}
@@ -826,7 +840,7 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 	return jobTitles, nil
 }
 
-// FetchJobTitlesFromDeftech fetches and parses job titles from DefTech DOU.ua page
+// FetchJobTitlesFromDeftech fetches and parses job titles from deftech.dou.ua page
 func (b *Bot) FetchJobTitlesFromDeftech() ([]JobInfo, error) {
 	url := "https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2"
 
@@ -849,7 +863,7 @@ func (b *Bot) FetchJobTitlesFromDeftech() ([]JobInfo, error) {
 	return jobInfos, nil
 }
 
-// findJobTitlesDeftech finds job titles in the DefTech HTML document
+// findJobTitlesDeftech finds job titles in the deftech.dou.ua/jobs HTML document
 func findJobTitlesDeftech(n *html.Node) []JobInfo {
 	var allLinks []struct {
 		text string
