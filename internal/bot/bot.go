@@ -354,11 +354,11 @@ func (b *Bot) postDeftechVacancies() error {
 
 	// If no new vacancies, just log and return
 	if len(newVacancyInfos) == 0 {
-		log.Println("No new vacancies found - skipping group posting")
+		log.Println("No new vacancies found")
 		return nil
 	}
 
-	log.Printf("Found %d new vacancies - posting to group", len(newVacancyInfos))
+	log.Printf("Found %d new vacancies", len(newVacancyInfos))
 
 	// Format the message with only new vacancies
 	var message strings.Builder
@@ -439,7 +439,6 @@ func (b *Bot) handleStart(c telebot.Context) error {
 	return c.Send(startText)
 }
 
-// handleHelp handles the /help command
 // handleHelp handles the /help command
 func (b *Bot) handleHelp(c telebot.Context) error {
 	log.Printf("Command /help received")
@@ -668,8 +667,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	// Show loading message
 	c.Send("Fetching Dwarf Engineering vacancies →")
 
-	var peopleforceTitles []string
-	var douTitles []string
+	var peopleforceTitles, douTitles []string
 
 	// Fetch from PeopleForce
 	peopleforceTitlesRaw, err := b.fetchJobTitles()
