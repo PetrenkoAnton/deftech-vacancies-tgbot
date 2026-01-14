@@ -60,8 +60,8 @@ cp .env.example .env
 
 Build and run:
 ```bash
-go build -o bin/miltech-tgbot .
-./bin/miltech-tgbot
+go build -o bin/deftech-tgbot .
+./bin/deftech-tgbot
 ```
 
 ### Commands
