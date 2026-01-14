@@ -39,8 +39,8 @@ type Vacancy struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// JobInfo represents vacancy information with company
-type JobInfo struct {
+// VacancyInfo represents vacancy information with company
+type VacancyInfo struct {
 	Title   string
 	Company string
 	URL     string
@@ -328,41 +328,41 @@ func (b *Bot) postDeftechVacancies() error {
 	log.Println("Fetching deftech vacancy listings for periodic posting...")
 
 	// Fetch vacancy titles from the deftech.dou.ua/jobs page
-	jobInfos, err := b.FetchJobTitlesFromDeftech()
+	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
 	if err != nil {
 		return fmt.Errorf("error fetching vacancy titles from deftech: %w", err)
 	}
 
 	// Check for new jobs and save them
-	var newJobInfos []JobInfo
-	for _, jobInfo := range jobInfos {
-		if !b.vacancyExists(jobInfo.Title) {
+	var newVacancyInfos []VacancyInfo
+	for _, vacancyInfo := range vacancyInfos {
+		if !b.vacancyExists(vacancyInfo.Title) {
 			// This is a new vacancy
-			err := b.saveVacancy(jobInfo.Title, jobInfo.URL)
+			err := b.saveVacancy(vacancyInfo.Title, vacancyInfo.URL)
 			if err != nil {
 				log.Printf("Error saving new vacancy to DB: %v", err)
 			} else {
-				newJobInfos = append(newJobInfos, jobInfo)
+				newVacancyInfos = append(newVacancyInfos, vacancyInfo)
 			}
 		}
 	}
 
 	// If no new vacancies, just log and return
-	if len(newJobInfos) == 0 {
+	if len(newVacancyInfos) == 0 {
 		log.Println("No new vacancies found - skipping group posting")
 		return nil
 	}
 
-	log.Printf("Found %d new vacancies - posting to group", len(newJobInfos))
+	log.Printf("Found %d new vacancies - posting to group", len(newVacancyInfos))
 
 	// Format the message with only new vacancies
 	var message strings.Builder
 	message.WriteString("**New vacancies:**\n\n")
 
-	for i, jobInfo := range newJobInfos {
-		id, hidden, err := b.getVacancyIDAndHiddenByTitle(jobInfo.Title)
+	for i, vacancyInfo := range newVacancyInfos {
+		id, hidden, err := b.getVacancyIDAndHiddenByTitle(vacancyInfo.Title)
 		if err != nil {
-			log.Printf("Error getting vacancy ID for %s: %v", jobInfo.Title, err)
+			log.Printf("Error getting vacancy ID for %s: %v", vacancyInfo.Title, err)
 			continue
 		}
 		action := "hide"
@@ -371,11 +371,11 @@ func (b *Bot) postDeftechVacancies() error {
 			action = "show"
 			prefix = "unignore"
 		}
-		company := jobInfo.Company
+		company := vacancyInfo.Company
 		if company == "" {
 			company = "-"
 		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
 	}
 
 	_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview)
@@ -383,7 +383,7 @@ func (b *Bot) postDeftechVacancies() error {
 		return fmt.Errorf("error sending new vacancies to group: %w", err)
 	}
 
-	log.Printf("Posted %d new vacancies to group", len(newJobInfos))
+	log.Printf("Posted %d new vacancies to group", len(newVacancyInfos))
 	return nil
 }
 
@@ -473,7 +473,7 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 }
 
 // fetchJobTitlesFromPage fetches and parses vacancy titles from a specific page
-func (b *Bot) fetchJobTitlesFromPage(page int) ([]JobInfo, error) {
+func (b *Bot) fetchJobTitlesFromPage(page int) ([]VacancyInfo, error) {
 	url := fmt.Sprintf("https://dwarfengineering.peopleforce.io/careers?page=%d", page)
 
 	resp, err := b.httpClient.Get(url)
@@ -513,8 +513,8 @@ func (b *Bot) collectText(n *html.Node, text *strings.Builder) {
 }
 
 // findJobTitles finds vacancy titles and URLs in the HTML document
-func (b *Bot) findJobTitles(n *html.Node) []JobInfo {
-	var vacancies []JobInfo
+func (b *Bot) findJobTitles(n *html.Node) []VacancyInfo {
+	var vacancies []VacancyInfo
 	if n.Type == html.ElementNode && n.Data == "h4" {
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			if c.Type == html.ElementNode && c.Data == "a" {
@@ -533,7 +533,7 @@ func (b *Bot) findJobTitles(n *html.Node) []JobInfo {
 					}
 				}
 				if title != "" && url != "" {
-					vacancies = append(vacancies, JobInfo{Title: title, URL: url})
+					vacancies = append(vacancies, VacancyInfo{Title: title, URL: url})
 				}
 			}
 		}
@@ -551,31 +551,31 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 	c.Send("Fetching vacancies from [https://deftech.dou.ua/vacancies/?city=Київ](https://deftech.dou.ua/vacancies/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
 
 	// Fetch vacancy titles from the deftech.dou.ua page
-	jobInfos, err := b.FetchJobTitlesFromDeftech()
+	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
 	if err != nil {
 		log.Printf("Error fetching vacancy titles from deftech.dou.ua: %v", err)
 		return c.Send(fmt.Sprintf("Error fetching vacancies: %v", err))
 	}
 
 	// Save vacancies to database if not exists
-	for _, jobInfo := range jobInfos {
-		err := b.saveVacancy(jobInfo.Title, jobInfo.URL)
+	for _, vacancyInfo := range vacancyInfos {
+		err := b.saveVacancy(vacancyInfo.Title, vacancyInfo.URL)
 		if err != nil {
 			log.Printf("Error saving vacancy to DB: %v", err)
 		}
 	}
 
-	if len(jobInfos) == 0 {
+	if len(vacancyInfos) == 0 {
 		return c.Send("No vacancies found.")
 	}
 
 	// Format and send the list as a simple numbered list
 	var message strings.Builder
 
-	for i, jobInfo := range jobInfos {
-		id, hidden, err := b.getVacancyIDAndHiddenByTitle(jobInfo.Title)
+	for i, vacancyInfo := range vacancyInfos {
+		id, hidden, err := b.getVacancyIDAndHiddenByTitle(vacancyInfo.Title)
 		if err != nil {
-			log.Printf("Error getting job ID for %s: %v", jobInfo.Title, err)
+			log.Printf("Error getting job ID for %s: %v", vacancyInfo.Title, err)
 			continue
 		}
 		action := "hide"
@@ -584,11 +584,11 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 			action = "show"
 			prefix = "unignore"
 		}
-		company := jobInfo.Company
+		company := vacancyInfo.Company
 		if company == "" {
 			company = "-"
 		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
@@ -601,44 +601,44 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	c.Send("Fetching vacancies from [https://deftech.dou.ua/jobs/?city=Київ](https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2) ...", telebot.ModeMarkdown)
 
 	// Fetch job titles from the deftech.dou.ua page
-	jobInfos, err := b.FetchJobTitlesFromDeftech()
+	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
 	if err != nil {
 		log.Printf("Error fetching vacancies from deftech.dou.ua: %v", err)
 		return c.Send(fmt.Sprintf("Error fetching vacancies: %v", err))
 	}
 
 	// Save vacancies to database if not exists
-	for _, jobInfo := range jobInfos {
-		err := b.saveVacancy(jobInfo.Title, jobInfo.URL)
+	for _, vacancyInfo := range vacancyInfos {
+		err := b.saveVacancy(vacancyInfo.Title, vacancyInfo.URL)
 		if err != nil {
 			log.Printf("Error saving vacancy to DB: %v", err)
 		}
 	}
 
-	// Filter jobInfos to only show visible vacancies
-	var visibleJobInfos []JobInfo
-	for _, jobInfo := range jobInfos {
-		_, hidden, err := b.getVacancyIDAndHiddenByTitle(jobInfo.Title)
+	// Filter vacancyInfos to only show visible vacancies
+	var visibleVacancyInfos []VacancyInfo
+	for _, vacancyInfo := range vacancyInfos {
+		_, hidden, err := b.getVacancyIDAndHiddenByTitle(vacancyInfo.Title)
 		if err != nil {
 			// If vacancy doesn't exist in DB yet (just saved), it's visible by default
-			visibleJobInfos = append(visibleJobInfos, jobInfo)
+			visibleVacancyInfos = append(visibleVacancyInfos, vacancyInfo)
 		} else if !hidden {
 			// Vacancy exists and is not hidden
-			visibleJobInfos = append(visibleJobInfos, jobInfo)
+			visibleVacancyInfos = append(visibleVacancyInfos, vacancyInfo)
 		}
 	}
 
-	if len(visibleJobInfos) == 0 {
+	if len(visibleVacancyInfos) == 0 {
 		return c.Send("No visible vacancies found.")
 	}
 
 	// Format and send the list as a simple numbered list
 	var message strings.Builder
 
-	for i, jobInfo := range visibleJobInfos {
-		id, hidden, err := b.getVacancyIDAndHiddenByTitle(jobInfo.Title)
+	for i, vacancyInfo := range visibleVacancyInfos {
+		id, hidden, err := b.getVacancyIDAndHiddenByTitle(vacancyInfo.Title)
 		if err != nil {
-			log.Printf("Error getting vacancy ID for %s: %v", jobInfo.Title, err)
+			log.Printf("Error getting vacancy ID for %s: %v", vacancyInfo.Title, err)
 			continue
 		}
 		action := "hide"
@@ -647,11 +647,11 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 			action = "show"
 			prefix = "unignore"
 		}
-		company := jobInfo.Company
+		company := vacancyInfo.Company
 		if company == "" {
 			company = "-"
 		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, jobInfo.Title, jobInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
@@ -813,7 +813,7 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 }
 
 // FetchJobTitlesFromDeftech fetches and parses job titles from deftech.dou.ua page
-func (b *Bot) FetchJobTitlesFromDeftech() ([]JobInfo, error) {
+func (b *Bot) FetchJobTitlesFromDeftech() ([]VacancyInfo, error) {
 	url := "https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2"
 
 	resp, err := b.httpClient.Get(url)
@@ -831,12 +831,12 @@ func (b *Bot) FetchJobTitlesFromDeftech() ([]JobInfo, error) {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
-	jobInfos := findJobTitlesDeftech(doc)
-	return jobInfos, nil
+	vacancyInfos := findJobTitlesDeftech(doc)
+	return vacancyInfos, nil
 }
 
 // findJobTitlesDeftech finds job titles in the deftech.dou.ua/jobs HTML document
-func findJobTitlesDeftech(n *html.Node) []JobInfo {
+func findJobTitlesDeftech(n *html.Node) []VacancyInfo {
 	var allLinks []struct {
 		text string
 		url  string
@@ -846,14 +846,14 @@ func findJobTitlesDeftech(n *html.Node) []JobInfo {
 	collectLinks(n, &allLinks)
 
 	// Second pass: pair job titles with companies
-	var jobInfos []JobInfo
+	var vacancyInfos []VacancyInfo
 	for i := 0; i < len(allLinks); i++ {
 		link := allLinks[i]
 		if strings.Contains(link.url, "/jobs/companies/") && strings.Contains(link.url, "/vacancies/") {
 			// Check if it's a job link (has a number after /vacancies/)
 			parts := strings.Split(link.url, "/vacancies/")
 			if len(parts) > 1 && len(parts[1]) > 0 && (parts[1][0] >= '0' && parts[1][0] <= '9') {
-				jobInfo := JobInfo{Title: link.text, URL: link.url}
+				vacancyInfo := VacancyInfo{Title: link.text, URL: link.url}
 
 				// Look for the next company link
 				for j := i + 1; j < len(allLinks) && j < i+3; j++ { // Look up to 2 links ahead
@@ -861,18 +861,18 @@ func findJobTitlesDeftech(n *html.Node) []JobInfo {
 					if strings.Contains(nextLink.url, "jobs.dou.ua/companies/") && strings.Contains(nextLink.url, "/vacancies/") {
 						parts := strings.Split(nextLink.url, "/vacancies/")
 						if len(parts) > 1 && (parts[1] == "" || strings.HasPrefix(parts[1], "?")) {
-							jobInfo.Company = nextLink.text
+							vacancyInfo.Company = nextLink.text
 							break
 						}
 					}
 				}
 
-				jobInfos = append(jobInfos, jobInfo)
+				vacancyInfos = append(vacancyInfos, vacancyInfo)
 			}
 		}
 	}
 
-	return jobInfos
+	return vacancyInfos
 }
 
 // collectLinks collects all relevant links from the HTML document in document order
