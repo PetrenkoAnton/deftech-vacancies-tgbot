@@ -29,12 +29,6 @@ func main() {
 		log.Fatal("ADMIN_ID environment variable is not set")
 	}
 
-	// Get group ID from environment variable (required)
-	groupID := os.Getenv("GROUP_ID")
-	if groupID == "" {
-		log.Fatal("GROUP_ID environment variable is not set")
-	}
-
 	// Get interval from environment variable (required)
 	intervalStr := os.Getenv("INTERVAL")
 	if intervalStr == "" {
@@ -61,7 +55,7 @@ func main() {
 
 	// Initialize bot
 	log.Println("Initializing Telegram bot →")
-	telegramBot, err := bot.New(botToken, adminID, groupID, intervalStr, dbName, vacanciesTable, deftechURL)
+	telegramBot, err := bot.New(botToken, adminID, intervalStr, dbName, vacanciesTable, deftechURL)
 	if err != nil {
 		log.Fatalf("Failed to initialize bot: %v", err)
 	}

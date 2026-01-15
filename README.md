@@ -12,11 +12,10 @@ A Telegram bot that fetches and manages vacancies from Dwarf Engineering company
   - `/deftech` - Get visible deftech vacancies only
   - `/dwarf_engineering` - Get Dwarf Engineering vacancies
   - `/deftech_all` - Get all deftech vacancies with hide/show controls
-  - `/test_post` - Post a test message to the configured Telegram group
   - `/truncate` - Clear all vacancies from database
 
 - **Automatic Posting**:
-  - Configurable periodic fetching and posting of **new** deftech vacancies to Telegram group
+  - Configurable periodic fetching and posting of **new** deftech vacancies to the admin
   - Only posts when new vacancies are discovered; logs otherwise
   - Set `INTERVAL` in minutes to enable automatic vacancy updates
 
@@ -44,7 +43,6 @@ go mod download
 cp .env.example .env
 # Required: BOT_TOKEN from @BotFather
 # Required: ADMIN_ID - Your Telegram user ID (get from @userinfobot)
-# Required: GROUP_ID - Telegram group ID for automatic posting (get ID from @ShowJsonBot or similar)
 # Required: INTERVAL - Posting interval in minutes
 # Required: DEFTECH_URL - DefTech vacancies URL (default: https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2)
 # Optional: DB_NAME - Database file path (default: ./deftech-tgbot.db)
@@ -65,7 +63,6 @@ go build -o bin/deftech-tgbot .
 
 - `/start` - Welcome message and command overview
 - `/help` - Show available commands
-- `/test_post` - Post a test message to the configured group
 - `/deftech` - Show only visible (non-hidden) DefTech jobs
 - `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + DOU.ua)
 - `/deftech_all` - Fetch all DefTech jobs with interactive hide/show links
@@ -73,7 +70,7 @@ go build -o bin/deftech-tgbot .
 
 ### Automatic Posting
 
-If `INTERVAL` is set in the `.env` file (in minutes), the bot will automatically fetch deftech vacancies at the specified interval. It will only post to the configured Telegram group when **new vacancies are discovered**. If no new vacancies are found, it will simply log the check without posting anything. The `/deftech` command can still be used for manual fetching of all visible jobs.
+If `INTERVAL` is set in the `.env` file (in minutes), the bot will automatically fetch deftech vacancies at the specified interval. It will only post to the admin when **new vacancies are discovered**. If no new vacancies are found, it will simply log the check without posting anything. The `/deftech` command can still be used for manual fetching of all visible jobs.
 
 ### Admin Authorization
 

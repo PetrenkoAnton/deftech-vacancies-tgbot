@@ -23,7 +23,6 @@ const (
 	commandsText = "Available commands:\n" +
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n" +
-		"/test_post - Post a test message to the configured group\n\n" +
 		"/deftech - Fetch and show visible deftech vacancies\n\n" +
 		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
 		"/deftech_all - Get vacancies from deftech.dou.ua\n\n" +
@@ -52,14 +51,13 @@ type Bot struct {
 	db             *sql.DB
 	httpClient     *http.Client
 	adminID        string
-	groupID        string
 	dbName         string
 	vacanciesTable string
 	deftechURL     string
 }
 
 // New creates a new bot instance
-func New(token string, adminID string, groupID string, intervalStr string, dbName string, vacanciesTable string, deftechURL string) (*Bot, error) {
+func New(token string, adminID string, intervalStr string, dbName string, vacanciesTable string, deftechURL string) (*Bot, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -91,7 +89,6 @@ func New(token string, adminID string, groupID string, intervalStr string, dbNam
 		db:             db,
 		httpClient:     httpClient,
 		adminID:        adminID,
-		groupID:        groupID,
 		dbName:         dbName,
 		vacanciesTable: vacanciesTable,
 		deftechURL:     deftechURL,
@@ -282,9 +279,6 @@ func (b *Bot) registerHandlers() {
 	// Truncate command handler
 	b.telebot.Handle("/truncate", b.handleTruncate)
 
-	// Test post command handler
-	b.telebot.Handle("/test_post", b.handleTestPost)
-
 	// Inline button callback handler
 	b.telebot.Handle(telebot.OnCallback, b.handleCallback)
 
@@ -309,41 +303,18 @@ func (b *Bot) startPeriodicPosting(interval time.Duration) {
 	}
 }
 
-// postMessage posts a test message to the configured group
-func (b *Bot) postMessage() error {
-	if b.groupID == "" {
-		return fmt.Errorf("GROUP_ID not set")
-	}
-
-	groupIDInt, err := strconv.ParseInt(b.groupID, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid GROUP_ID: %w", err)
-	}
-
-	chat := &telebot.Chat{ID: groupIDInt}
-	message := "This is a test message from the Deftech Vacancies Bot."
-
-	_, err = b.telebot.Send(chat, message)
-	if err != nil {
-		return fmt.Errorf("error sending message to group: %w", err)
-	}
-
-	log.Println("Manual test message posted to group")
-	return nil
-}
-
-// postDeftechVacancies fetches deftech vacancies and posts them to the configured group only if there are new vacancies
+// postDeftechVacancies fetches deftech vacancies and posts them to the admin only if there are new vacancies
 func (b *Bot) postDeftechVacancies() error {
-	if b.groupID == "" {
-		return fmt.Errorf("GROUP_ID not set")
+	if b.adminID == "" {
+		return fmt.Errorf("ADMIN_ID not set")
 	}
 
-	groupIDInt, err := strconv.ParseInt(b.groupID, 10, 64)
+	adminIDInt, err := strconv.ParseInt(b.adminID, 10, 64)
 	if err != nil {
-		return fmt.Errorf("invalid GROUP_ID: %w", err)
+		return fmt.Errorf("invalid ADMIN_ID: %w", err)
 	}
 
-	chat := &telebot.Chat{ID: groupIDInt}
+	chat := &telebot.Chat{ID: adminIDInt}
 
 	log.Println("Fetching deftech vacancies for periodic posting →")
 
@@ -398,12 +369,12 @@ func (b *Bot) postDeftechVacancies() error {
 		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
 	}
 
-	_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard())
+	_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview)
 	if err != nil {
-		return fmt.Errorf("error sending new vacancies to group: %w", err)
+		return fmt.Errorf("error sending new vacancies to admin: %w", err)
 	}
 
-	log.Printf("Posted %d new vacancies to group", len(newVacancyInfos))
+	log.Printf("Posted %d new vacancies to admin", len(newVacancyInfos))
 	return nil
 }
 
@@ -751,18 +722,6 @@ func (b *Bot) handleTruncate(c telebot.Context) error {
 		return c.Send("Error truncating vacancies table", b.getCommandKeyboard())
 	}
 	return c.Send("Vacancies table truncated successfully", b.getCommandKeyboard())
-}
-
-// handleTestPost handles the /test_post command
-func (b *Bot) handleTestPost(c telebot.Context) error {
-	log.Printf("Command /test_post received")
-
-	if err := b.postMessage(); err != nil {
-		log.Printf("Error posting message: %v", err)
-		return c.Send(fmt.Sprintf("Error posting message: %v", err), b.getCommandKeyboard())
-	}
-
-	return c.Send("Test message posted to group successfully", b.getCommandKeyboard())
 }
 
 // RSSFeed represents the RSS feed structure
