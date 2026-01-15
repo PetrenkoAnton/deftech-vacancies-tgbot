@@ -2,8 +2,8 @@
 
 ## Project Overview
 This is a Telegram bot written in Go that fetches and manages job vacancies from:
-- Deftech (deftech.dou.ua)
-- Dwarf Engineering (PeopleForce and DOU.ua)
+- deftech.dou.ua/jobs
+- Dwarf Engineering (dwarfengineering.peopleforce.io/careers and jobs.dou.ua/companies/dwarf-engineering/vacancies)
 
 ## Tech Stack
 - **Language**: Go
@@ -66,5 +66,5 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 - Maintain consistent error handling and user feedback
 - Use absolute paths when referencing files in the workspace
 - Do not auto commit and push changes
-- Always write short commit message
+- Always write as short as posible commit message
 - Always update README and actualize .github/copilot-instructions.md before committing changes
