@@ -150,10 +150,10 @@ func (b *Bot) adminMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 // getCommandKeyboard creates an inline keyboard with command buttons
 func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	markup := &telebot.ReplyMarkup{}
-	btnGetSavedVisible := markup.Data("Get saved visible", "/get_saved_visible")
+	btnGetSavedVisible := markup.Data("Get saved (visible)", "/get_saved_visible")
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnDwarf := markup.Data("Dwarf Engineering", "/dwarf_engineering")
-	btnGetSavedAll := markup.Data("Get saved all", "/get_saved_all")
+	btnGetSavedAll := markup.Data("Get saved (all)", "/get_saved_all")
 	markup.Inline(
 		markup.Row(btnGetSavedVisible),
 		markup.Row(btnFetchNewest, btnDwarf),
@@ -492,6 +492,10 @@ func (b *Bot) handleStart(c telebot.Context) error {
 	}
 
 	startText := "Hello! Welcome to the bot.\n\n" + commandsText
+	// Add version if available
+	if version, err := os.ReadFile("VERSION"); err == nil {
+		startText = fmt.Sprintf("Hello! Welcome to the bot (v%s).\n\n", strings.TrimSpace(string(version))) + commandsText
+	}
 	return c.Send(startText, b.getCommandKeyboard(), telebot.Silent)
 }
 
