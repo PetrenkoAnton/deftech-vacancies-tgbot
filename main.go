@@ -54,13 +54,17 @@ func main() {
 		vacanciesTable = "vacancies"
 	}
 
-	// Get limit from environment variable (optional, default to 10)
+	// Get limit from environment variable (required)
 	limitStr := os.Getenv("LIMIT")
-	limit := 10
-	if limitStr != "" {
-		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
+	if limitStr == "" {
+		log.Fatal("LIMIT environment variable is not set")
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		log.Fatalf("Invalid LIMIT value: %v", err)
+	}
+	if limit <= 0 || limit >= 100 {
+		log.Fatalf("LIMIT must be greater than 0 and less than 100, got: %d", limit)
 	}
 
 	// Initialize bot

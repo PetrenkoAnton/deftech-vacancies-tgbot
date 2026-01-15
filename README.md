@@ -13,7 +13,7 @@ A Telegram bot that fetches and manages vacancies from Dwarf Engineering company
   - `/fetch_newest` - Fetch and post only new deftech vacancies
   - `/fetch_latest` - Fetch and display latest deftech vacancies (no saving)
   - `/dwarf_engineering` - Get Dwarf Engineering vacancies
-  - `/get_saved_all` - Get all saved vacancies with hide/show controls (excludes Dwarf Engineering)
+  - `/get_saved_latest` - Get all saved vacancies with hide/show controls (excludes Dwarf Engineering)
   - `/clear_saved` - Clear hidden vacancies from database
 
 - **Automatic Posting**:
@@ -49,6 +49,7 @@ cp .env.example .env
 # Required: DEFTECH_URL - DefTech vacancies URL (default: https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2)
 # Optional: DB_NAME - Database file path (default: ./deftech-tgbot.db)
 # Optional: VACANCIES_TABLE - Database table name (default: vacancies)
+# Required: LIMIT - Maximum vacancies to display in saved lists (1-50)
 ```
 
 ## Usage
@@ -69,7 +70,7 @@ go build -o bin/deftech-tgbot .
 - `/fetch_newest` - Fetch and post only new DefTech jobs
 - `/fetch_latest` - Fetch and display latest DefTech jobs without saving
 - `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + DOU.ua)
-- `/get_saved_all` - Fetch all saved jobs with interactive hide/show links (excludes Dwarf Engineering)
+- `/get_saved_latest` - Fetch all saved jobs with interactive hide/show links (excludes Dwarf Engineering, shows total count of all saved vacancies)
 - `/clear_saved` - Clear hidden jobs from database (admin only)
 
 ### Automatic Posting
@@ -97,6 +98,7 @@ miltech-tgbot/
 ├── main.go              # Application entry point
 ├── go.mod               # Go module dependencies
 ├── .env                 # Environment configuration
+├── VERSION              # Bot version file
 ├── deftech-tgbot.db     # SQLite database (auto-created, configurable via DB_NAME)
 └── bin/                 # Compiled binaries
 ```

@@ -23,11 +23,11 @@ const (
 	commandsText = "Available commands:\n" +
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n\n" +
+		"/get_saved_latest - Get latest saved vacancies\n" +
+		"/get_saved_visible - Get visible saved vacancies\n\n" +
 		"/fetch_newest - Fetch newest vacancies from deftech.dou.ua\n" +
-		"/fetch_latest - Fetch latest vacancies from deftech.dou.ua\n" +
-		"/get_saved_all - Get all saved vacancies\n" +
-		"/get_saved_visible - Fetch and show visible deftech vacancies\n\n" +
-		"/dwarf_engineering - Get Dwarf Engineering vacancies\n\n" +
+		"/fetch_latest - Fetch latest vacancies from deftech.dou.ua\n\n" +
+		"/dwarf_engineering - Fetch Dwarf Engineering vacancies\n\n" +
 		"/clear_saved - Clear hidden vacancies"
 )
 
@@ -154,12 +154,12 @@ func (b *Bot) adminMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	markup := &telebot.ReplyMarkup{}
 	btnGetSavedVisible := markup.Data("Get saved (visible)", "/get_saved_visible")
-	btnGetSavedAll := markup.Data("Get saved (all)", "/get_saved_all")
+	btnGetSavedLatest := markup.Data("Get saved (latest)", "/get_saved_latest")
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
 	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/dwarf_engineering")
 	markup.Inline(
-		markup.Row(btnGetSavedVisible, btnGetSavedAll),
+		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
 		markup.Row(btnFetchNewest, btnFetchLatest),
 		markup.Row(btnDwarf),
 	)
@@ -286,7 +286,7 @@ func (b *Bot) getVacancies() ([]Vacancy, error) {
 
 // getVisibleVacancies retrieves all non-hidden vacancies from the database
 func (b *Bot) getVisibleVacancies() ([]Vacancy, error) {
-	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s WHERE is_hidden = FALSE ORDER BY created_at ASC LIMIT %d`, b.tableName(), b.limit)
+	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s WHERE is_hidden = FALSE ORDER BY created_at ASC`, b.tableName())
 
 	rows, err := b.db.Query(query)
 	if err != nil {
@@ -351,7 +351,7 @@ func (b *Bot) registerHandlers() {
 	b.telebot.Handle("/get_saved_visible", b.handleGetSavedVisible)
 
 	// Get saved vacancies command handler
-	b.telebot.Handle("/get_saved_all", b.handleGetSavedAll)
+	b.telebot.Handle("/get_saved_latest", b.handleGetSavedLatest)
 
 	// Clear saved command handler
 	b.telebot.Handle("/clear_saved", b.handleClearSaved)
@@ -708,9 +708,9 @@ func (b *Bot) handleFetchLatest(c telebot.Context) error {
 
 // handleGetSavedVisible handles the /get_saved_visible command
 func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
-	log.Printf("Command /get_visible received")
+	log.Printf("Command /get_saved_visible received")
 	// Show loading message
-	c.Send(fmt.Sprintf("Fetching visible vacancies from db →"), telebot.ModeMarkdown, telebot.Silent)
+	c.Send(fmt.Sprintf("Getting visible vacancies from db →"), telebot.ModeMarkdown, telebot.Silent)
 
 	// Get visible vacancies from database
 	vacancies, err := b.getVisibleVacancies()
@@ -759,9 +759,11 @@ func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
 }
 
-// handleGetSavedAll handles the /get_saved_all command
-func (b *Bot) handleGetSavedAll(c telebot.Context) error {
-	log.Printf("Command /get_saved_all received")
+// handleGetSavedLatest handles the /get_saved_latest command
+func (b *Bot) handleGetSavedLatest(c telebot.Context) error {
+	log.Printf("Command /get_saved_latest received")
+	// Show loading message
+	c.Send(fmt.Sprintf("Getting %d latest saved vacancies from db →", b.limit), telebot.ModeMarkdown, telebot.Silent)
 
 	// First, get total count of all vacancies (excluding Dwarf Engineering)
 	totalCountQuery := fmt.Sprintf(`
@@ -1121,8 +1123,8 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 		err := b.handleGetDwarfEngineering(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
-	case "/get_saved_all":
-		err := b.handleGetSavedAll(c)
+	case "/get_saved_latest":
+		err := b.handleGetSavedLatest(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
 	default:

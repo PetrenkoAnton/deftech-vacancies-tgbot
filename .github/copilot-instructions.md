@@ -11,6 +11,7 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 - **Bot Framework**: telebot (gopkg.in/telebot.v3)
 - **Web Scraping**: Standard library + html package
 - **Configuration**: Environment variables (.env file)
+- **Version**: VERSION file for bot version tracking
 
 ## Project Structure
 ```
@@ -20,7 +21,8 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 ├── migrations/             # Database migration files
 │   └── 001_initial.sql     # Initial schema
 ├── build_and_run.sh        # Build and run script
-└── .env                    # Environment configuration
+├── .env                    # Environment configuration
+└── VERSION                 # Bot version file
 ```
 
 ## Database Schema
@@ -34,7 +36,7 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 - `/fetch_newest` - Fetch newest vacancies from deftech.dou.ua (only new ones)
 - `/fetch_latest` - Fetch latest vacancies from deftech.dou.ua (all, no saving)
 - `/dwarf_engineering` - Fetch Dwarf Engineering vacancies
-- `/get_saved_all` - List all saved vacancies (excludes Dwarf Engineering)
+- `/get_saved_latest` - List all saved vacancies (excludes Dwarf Engineering)
 - `/clear_saved` - Clear hidden vacancies
 
 ## Key Functions
@@ -42,7 +44,7 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 - `handleFetchNewest` - Scrape and save only new deftech vacancies, send message if any new
 - `handleFetchLatest` - Fetch and display latest deftech vacancies without saving
 - `handleGetDwarfEngineering` - Fetch from multiple Dwarf sources
-- `handleGetSavedAll` - Display filtered saved vacancies with total count
+- `handleGetSavedLatest` - Display filtered saved vacancies with total count (shows count of all saved vacancies, not just displayed ones)
 - `saveVacancy` - Insert vacancy if not exists
 - `getAllVacancies` - Retrieve all vacancies from DB
 
@@ -60,13 +62,14 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 - Database file: `deftech-tgbot.db`
 - Environment variables in `.env` (copy from `.env.example`)
 - Bot token required for Telegram API
+- LIMIT environment variable controls maximum vacancies displayed in saved lists (required: 1-50)
 
 ## AI Assistant Guidelines
+- **DONT AUTO COMMIT** - Always wait for explicit user instruction before committing changes
 - When modifying bot commands, update both handler registration and callback cases
 - Database changes require migration updates
 - Test web scraping functions carefully (sites may change)
 - Maintain consistent error handling and user feedback
 - Use absolute paths when referencing files in the workspace
-- Do not auto commit and push changes
 - Always write as short as posible commit message
 - Always update README and actualize .github/copilot-instructions.md before committing changes
