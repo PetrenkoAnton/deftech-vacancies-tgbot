@@ -148,8 +148,8 @@ func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	btnDeftechAll := markup.Data("Deftech All", "/deftech_all")
 	btnDwarf := markup.Data("Dwarf Engineering", "/dwarf_engineering")
 	markup.Inline(
-		markup.Row(btnDeftech, btnDeftechAll),
-		markup.Row(btnDwarf),
+		markup.Row(btnDeftech),
+		markup.Row(btnDeftechAll, btnDwarf),
 	)
 	return markup
 }
@@ -567,7 +567,7 @@ func (b *Bot) findJobTitles(n *html.Node) []VacancyInfo {
 func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 	log.Printf("Command /deftech_all received")
 	// Show loading message
-	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown, b.getCommandKeyboard())
+	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown)
 
 	// Fetch vacancy titles from the deftech.dou.ua page
 	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
@@ -617,7 +617,7 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	log.Printf("Command /deftech received")
 	// Show loading message
-	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown, b.getCommandKeyboard())
+	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown)
 
 	// Fetch job titles from the deftech.dou.ua page
 	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
@@ -680,7 +680,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	log.Printf("Command /dwarf_engineering received")
 	// Show loading message
-	c.Send("Fetching Dwarf Engineering vacancies →", b.getCommandKeyboard())
+	c.Send("Fetching Dwarf Engineering vacancies →")
 
 	var peopleforceTitles, douTitles []string
 
@@ -937,24 +937,31 @@ func collectText(n *html.Node, text *strings.Builder) {
 func (b *Bot) handleText(c telebot.Context) error {
 	log.Printf("Text message received: %s", c.Text())
 	// Echo the message back
-	return c.Send("You said: " + c.Text(), b.getCommandKeyboard())
+	return c.Send("You said: "+c.Text(), b.getCommandKeyboard())
 }
 
 // handleCallback handles inline button callbacks
 func (b *Bot) handleCallback(c telebot.Context) error {
-	data := c.Callback().Data
+	data := strings.TrimSpace(c.Callback().Data)
 	log.Printf("Callback received: %s", data)
 
 	switch data {
 	case "/deftech":
-		return b.handleGetDeftech(c)
+		err := b.handleGetDeftech(c)
+		c.Respond(&telebot.CallbackResponse{})
+		return err
 	case "/deftech_all":
-		return b.handleGetDeftechAll(c)
+		err := b.handleGetDeftechAll(c)
+		c.Respond(&telebot.CallbackResponse{})
+		return err
 	case "/dwarf_engineering":
-		return b.handleGetDwarfEngineering(c)
+		err := b.handleGetDwarfEngineering(c)
+		c.Respond(&telebot.CallbackResponse{})
+		return err
 	default:
 		// For now, just acknowledge the callback without functionality
-		return c.Respond(&telebot.CallbackResponse{Text: "Ignore functionality not implemented yet"})
+		log.Printf("Unknown callback data: %s", data)
+		return c.Respond(&telebot.CallbackResponse{Text: "Not implemented yet."})
 	}
 }
 
