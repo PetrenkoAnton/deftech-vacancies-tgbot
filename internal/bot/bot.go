@@ -25,7 +25,7 @@ const (
 		"/help - Show this help message\n" +
 		"/deftech - Fetch and show visible deftech vacancies\n\n" +
 		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
-		"/deftech_fetch_newest - Fetch newest vacancies from deftech.dou.ua\n" +
+		"/fetch_newest - Fetch newest vacancies from deftech.dou.ua\n" +
 		"/get_saved - Get all saved vacancies\n\n" +
 		"/truncate - Truncate vacancies table"
 )
@@ -151,12 +151,12 @@ func (b *Bot) adminMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	markup := &telebot.ReplyMarkup{}
 	btnDeftech := markup.Data("Deftech Visible", "/deftech")
-	btnDeftechFetchNewest := markup.Data("Deftech Fetch Newest", "/deftech_fetch_newest")
+	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnDwarf := markup.Data("Dwarf Engineering", "/dwarf_engineering")
 	btnGetSaved := markup.Data("Get saved", "/get_saved")
 	markup.Inline(
 		markup.Row(btnDeftech),
-		markup.Row(btnDeftechFetchNewest, btnDwarf),
+		markup.Row(btnFetchNewest, btnDwarf),
 		markup.Row(btnGetSaved),
 	)
 	return markup
@@ -338,7 +338,7 @@ func (b *Bot) registerHandlers() {
 	b.telebot.Handle("/dwarf_engineering", b.handleGetDwarfEngineering)
 
 	// Get list deftech command handler
-	b.telebot.Handle("/deftech_fetch_newest", b.handleDeftechFetchNewest)
+	b.telebot.Handle("/fetch_newest", b.handleFetchNewest)
 
 	// Get visible deftech vacancies command handler
 	b.telebot.Handle("/deftech", b.handleGetDeftech)
@@ -604,9 +604,9 @@ func (b *Bot) findJobTitles(n *html.Node) []VacancyInfo {
 	return vacancies
 }
 
-// handleDeftechFetchNewest handles the /deftech_fetch_newest command
-func (b *Bot) handleDeftechFetchNewest(c telebot.Context) error {
-	log.Printf("Command /deftech_fetch_newest received")
+// handleFetchNewest handles the /fetch_newest command
+func (b *Bot) handleFetchNewest(c telebot.Context) error {
+	log.Printf("Command /fetch_newest received")
 	// Show loading message
 	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown, telebot.Silent)
 
@@ -728,15 +728,29 @@ func (b *Bot) handleGetSaved(c telebot.Context) error {
 		return c.Send("Error getting saved vacancies", b.getCommandKeyboard(), telebot.Silent)
 	}
 
-	if len(vacancies) == 0 {
+	// Filter out Dwarf Engineering vacancies
+	var filteredVacancies []Vacancy
+	for _, vacancy := range vacancies {
+		company := "Unknown"
+		if vacancy.CompanyID != nil {
+			if name, err := b.getCompanyNameByID(*vacancy.CompanyID); err == nil {
+				company = name
+			}
+		}
+		if company != "Dwarf Engineering" {
+			filteredVacancies = append(filteredVacancies, vacancy)
+		}
+	}
+
+	if len(filteredVacancies) == 0 {
 		return c.Send("No saved vacancies found.", b.getCommandKeyboard(), telebot.Silent)
 	}
 
 	// Format and send the list
 	var message strings.Builder
-	message.WriteString(fmt.Sprintf("Total vacancies: %d\n\n", len(vacancies)))
+	message.WriteString(fmt.Sprintf("Total vacancies: %d\n\n", len(filteredVacancies)))
 
-	for i, vacancy := range vacancies {
+	for i, vacancy := range filteredVacancies {
 		action := "hide"
 		prefix := "ignore"
 		if vacancy.IsHidden {
@@ -1017,8 +1031,8 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 		err := b.handleGetDeftech(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
-	case "/deftech_fetch_newest":
-		err := b.handleDeftechFetchNewest(c)
+	case "/fetch_newest":
+		err := b.handleFetchNewest(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
 	case "/dwarf_engineering":
