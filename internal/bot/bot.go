@@ -25,7 +25,8 @@ const (
 		"/help - Show this help message\n" +
 		"/deftech - Fetch and show visible deftech vacancies\n\n" +
 		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
-		"/deftech_fetch_newest - Fetch newest vacancies from deftech.dou.ua\n\n" +
+		"/deftech_fetch_newest - Fetch newest vacancies from deftech.dou.ua\n" +
+		"/get_saved - Get all saved vacancies\n\n" +
 		"/truncate - Truncate vacancies table"
 )
 
@@ -144,9 +145,11 @@ func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	btnDeftech := markup.Data("Deftech Visible", "/deftech")
 	btnDeftechFetchNewest := markup.Data("Deftech Fetch Newest", "/deftech_fetch_newest")
 	btnDwarf := markup.Data("Dwarf Engineering", "/dwarf_engineering")
+	btnGetSaved := markup.Data("Get saved", "/get_saved")
 	markup.Inline(
 		markup.Row(btnDeftech),
 		markup.Row(btnDeftechFetchNewest, btnDwarf),
+		markup.Row(btnGetSaved),
 	)
 	return markup
 }
@@ -259,6 +262,29 @@ func (b *Bot) getVisibleVacancies() ([]Vacancy, error) {
 	return vacancies, rows.Err()
 }
 
+// getAllVacancies retrieves all vacancies from the database
+func (b *Bot) getAllVacancies() ([]Vacancy, error) {
+	query := fmt.Sprintf(`SELECT id, title, url, created_at, is_hidden FROM %s ORDER BY created_at ASC`, b.tableName())
+
+	rows, err := b.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var vacancies []Vacancy
+	for rows.Next() {
+		var vacancy Vacancy
+		err := rows.Scan(&vacancy.ID, &vacancy.Title, &vacancy.URL, &vacancy.CreatedAt, &vacancy.IsHidden)
+		if err != nil {
+			return nil, err
+		}
+		vacancies = append(vacancies, vacancy)
+	}
+
+	return vacancies, rows.Err()
+}
+
 // registerHandlers registers all bot command and message handlers
 func (b *Bot) registerHandlers() {
 	// Start command handler
@@ -275,6 +301,9 @@ func (b *Bot) registerHandlers() {
 
 	// Get visible deftech vacancies command handler
 	b.telebot.Handle("/deftech", b.handleGetDeftech)
+
+	// Get saved vacancies command handler
+	b.telebot.Handle("/get_saved", b.handleGetSaved)
 
 	// Truncate command handler
 	b.telebot.Handle("/truncate", b.handleTruncate)
@@ -647,6 +676,38 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
 }
 
+// handleGetSaved handles the /get_saved command
+func (b *Bot) handleGetSaved(c telebot.Context) error {
+	log.Printf("Command /get_saved received")
+
+	// Get all vacancies from database
+	vacancies, err := b.getAllVacancies()
+	if err != nil {
+		log.Printf("Error getting all vacancies: %v", err)
+		return c.Send("Error getting saved vacancies", b.getCommandKeyboard(), telebot.Silent)
+	}
+
+	if len(vacancies) == 0 {
+		return c.Send("No saved vacancies found.", b.getCommandKeyboard(), telebot.Silent)
+	}
+
+	// Format and send the list
+	var message strings.Builder
+
+	for i, vacancy := range vacancies {
+		action := "hide"
+		prefix := "ignore"
+		if vacancy.IsHidden {
+			action = "show"
+			prefix = "unignore"
+		}
+		company := "DefTech" // Since all are from deftech
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancy.Title, vacancy.URL, company, action, c.Bot().Me.Username, prefix, vacancy.ID))
+	}
+
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
+}
+
 // handleGetDwarfEngineering handles the /dwarf_engineering command
 func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	log.Printf("Command /dwarf_engineering received")
@@ -915,6 +976,10 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 		return err
 	case "/dwarf_engineering":
 		err := b.handleGetDwarfEngineering(c)
+		c.Respond(&telebot.CallbackResponse{})
+		return err
+	case "/get_saved":
+		err := b.handleGetSaved(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
 	default:
