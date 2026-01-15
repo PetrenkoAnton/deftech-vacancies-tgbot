@@ -1,4 +1,4 @@
-# Deftech vacancies Telegram bot
+# Deftech Vacancies Telegram Bot
 
 A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) and Dwarf Engineering company.
 
@@ -92,7 +92,7 @@ Bot commands (`/get_saved_latest`) include interactive links to hide or show ind
 ## Project Structure
 
 ```
-miltech-tgbot/
+deftech-vacancies-tgbot/
 ├── main.go               # Application entry point
 ├── app/bot.go            # Bot logic, handlers, and database operations
 ├── migrations/           # Database schema migrations
