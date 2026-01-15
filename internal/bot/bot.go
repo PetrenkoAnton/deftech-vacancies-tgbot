@@ -25,7 +25,7 @@ const (
 		"/help - Show this help message\n" +
 		"/deftech - Fetch and show visible deftech vacancies\n\n" +
 		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
-		"/deftech_all - Get vacancies from deftech.dou.ua\n\n" +
+		"/deftech_fetch_newest - Fetch newest vacancies from deftech.dou.ua\n\n" +
 		"/truncate - Truncate vacancies table"
 )
 
@@ -142,11 +142,11 @@ func (b *Bot) adminMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	markup := &telebot.ReplyMarkup{}
 	btnDeftech := markup.Data("Deftech Visible", "/deftech")
-	btnDeftechAll := markup.Data("Deftech All", "/deftech_all")
+	btnDeftechFetchNewest := markup.Data("Deftech Fetch Newest", "/deftech_fetch_newest")
 	btnDwarf := markup.Data("Dwarf Engineering", "/dwarf_engineering")
 	markup.Inline(
 		markup.Row(btnDeftech),
-		markup.Row(btnDeftechAll, btnDwarf),
+		markup.Row(btnDeftechFetchNewest, btnDwarf),
 	)
 	return markup
 }
@@ -271,7 +271,7 @@ func (b *Bot) registerHandlers() {
 	b.telebot.Handle("/dwarf_engineering", b.handleGetDwarfEngineering)
 
 	// Get list deftech command handler
-	b.telebot.Handle("/deftech_all", b.handleGetDeftechAll)
+	b.telebot.Handle("/deftech_fetch_newest", b.handleDeftechFetchNewest)
 
 	// Get visible deftech vacancies command handler
 	b.telebot.Handle("/deftech", b.handleGetDeftech)
@@ -534,9 +534,9 @@ func (b *Bot) findJobTitles(n *html.Node) []VacancyInfo {
 	return vacancies
 }
 
-// handleGetDeftechAll handles the /deftech_all command
-func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
-	log.Printf("Command /deftech_all received")
+// handleDeftechFetchNewest handles the /deftech_fetch_newest command
+func (b *Bot) handleDeftechFetchNewest(c telebot.Context) error {
+	log.Printf("Command /deftech_fetch_newest received")
 	// Show loading message
 	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown, telebot.Silent)
 
@@ -909,8 +909,8 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 		err := b.handleGetDeftech(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
-	case "/deftech_all":
-		err := b.handleGetDeftechAll(c)
+	case "/deftech_fetch_newest":
+		err := b.handleDeftechFetchNewest(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
 	case "/dwarf_engineering":
