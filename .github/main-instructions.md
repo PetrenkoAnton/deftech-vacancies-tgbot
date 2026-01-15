@@ -1,7 +1,7 @@
 # Copilot Rules for Deftech Vacancies Telegram Bot
 
 - **DONT AUTO COMMIT** - Always wait for explicit user instruction before committing changes
-- **WRITE SHORT COMMITS** - Keep commit messages concise and relevant
+- **WRITE SHORT COMMIT MESSAGE** - Keep commit messages concise and relevant
 
 ## Project Overview
 This is a Telegram bot written in Go that fetches and manages job vacancies from:
