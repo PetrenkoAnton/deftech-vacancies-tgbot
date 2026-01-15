@@ -763,7 +763,21 @@ func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
 func (b *Bot) handleGetSavedAll(c telebot.Context) error {
 	log.Printf("Command /get_saved_all received")
 
-	// Get all vacancies from database, ordered by latest first, limited
+	// First, get total count of all vacancies (excluding Dwarf Engineering)
+	totalCountQuery := fmt.Sprintf(`
+		SELECT COUNT(*) FROM %s v
+		LEFT JOIN companies c ON v.company_id = c.id
+		WHERE c.name != 'Dwarf Engineering' OR c.name IS NULL
+	`, b.tableName())
+
+	var totalCount int
+	err := b.db.QueryRow(totalCountQuery).Scan(&totalCount)
+	if err != nil {
+		log.Printf("Error getting total count: %v", err)
+		return c.Send("Error getting saved vacancies", b.getCommandKeyboard(), telebot.Silent)
+	}
+
+	// Get limited vacancies from database, ordered by latest first
 	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s ORDER BY created_at DESC LIMIT %d`, b.tableName(), b.limit)
 
 	rows, err := b.db.Query(query)
@@ -803,12 +817,16 @@ func (b *Bot) handleGetSavedAll(c telebot.Context) error {
 	}
 
 	if len(filteredVacancies) == 0 {
-		return c.Send("No saved vacancies found.", b.getCommandKeyboard(), telebot.Silent)
+		if totalCount == 0 {
+			return c.Send("No saved vacancies found.", b.getCommandKeyboard(), telebot.Silent)
+		} else {
+			return c.Send(fmt.Sprintf("No vacancies to display (showing latest %d of %d total).", b.limit, totalCount), b.getCommandKeyboard(), telebot.Silent)
+		}
 	}
 
 	// Format and send the list
 	var message strings.Builder
-	message.WriteString(fmt.Sprintf("Total vacancies: %d\n\n", len(filteredVacancies)))
+	message.WriteString(fmt.Sprintf("Total vacancies: %d\n\n", totalCount))
 
 	for i, vacancy := range filteredVacancies {
 		action := "hide"
