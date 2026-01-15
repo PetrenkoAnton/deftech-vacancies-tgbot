@@ -35,7 +35,15 @@ type Vacancy struct {
 	ID        int       `json:"id"`
 	Title     string    `json:"title"`
 	URL       string    `json:"url"`
+	CompanyID *int      `json:"company_id"`
 	IsHidden  bool      `json:"is_hidden"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// Company represents a company
+type Company struct {
+	ID        int       `json:"id"`
+	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -175,12 +183,16 @@ func runMigrations(db *sql.DB) error {
 }
 
 // saveVacancy saves a vacancy to the database
-func (b *Bot) saveVacancy(title, url string) error {
+func (b *Bot) saveVacancy(title, url, companyName string) error {
 	if b.vacancyExists(title) {
 		return nil // already exists
 	}
-	query := fmt.Sprintf(`INSERT INTO %s (title, url, created_at, is_hidden) VALUES (?, ?, ?, FALSE)`, b.tableName())
-	_, err := b.db.Exec(query, title, url, time.Now())
+	companyID, err := b.getOrCreateCompany(companyName)
+	if err != nil {
+		return err
+	}
+	query := fmt.Sprintf(`INSERT INTO %s (title, url, company_id, created_at, is_hidden) VALUES (?, ?, ?, ?, FALSE)`, b.tableName())
+	_, err = b.db.Exec(query, title, url, companyID, time.Now())
 	return err
 }
 
@@ -190,6 +202,35 @@ func (b *Bot) vacancyExists(title string) bool {
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE title = ?", b.tableName())
 	err := b.db.QueryRow(query, title).Scan(&count)
 	return err == nil && count > 0
+}
+
+// getOrCreateCompany gets the company ID by name, creating it if it doesn't exist
+func (b *Bot) getOrCreateCompany(name string) (int, error) {
+	var id int
+	query := "SELECT id FROM companies WHERE name = ?"
+	err := b.db.QueryRow(query, name).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if err != sql.ErrNoRows {
+		return 0, err
+	}
+	// Create new company
+	query = "INSERT INTO companies (name, created_at) VALUES (?, ?)"
+	result, err := b.db.Exec(query, name, time.Now())
+	if err != nil {
+		return 0, err
+	}
+	id64, err := result.LastInsertId()
+	return int(id64), err
+}
+
+// getCompanyNameByID gets the company name by ID
+func (b *Bot) getCompanyNameByID(id int) (string, error) {
+	var name string
+	query := "SELECT name FROM companies WHERE id = ?"
+	err := b.db.QueryRow(query, id).Scan(&name)
+	return name, err
 }
 
 // getVacancyIDAndHiddenByTitle gets the vacancy ID and hidden status by title
@@ -241,7 +282,7 @@ func (b *Bot) getVacancies() ([]Vacancy, error) {
 
 // getVisibleVacancies retrieves all non-hidden vacancies from the database
 func (b *Bot) getVisibleVacancies() ([]Vacancy, error) {
-	query := fmt.Sprintf(`SELECT id, title, url, created_at, is_hidden FROM %s WHERE is_hidden = FALSE ORDER BY created_at ASC`, b.tableName())
+	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s WHERE is_hidden = FALSE ORDER BY created_at ASC`, b.tableName())
 
 	rows, err := b.db.Query(query)
 	if err != nil {
@@ -252,7 +293,7 @@ func (b *Bot) getVisibleVacancies() ([]Vacancy, error) {
 	var vacancies []Vacancy
 	for rows.Next() {
 		var vacancy Vacancy
-		err := rows.Scan(&vacancy.ID, &vacancy.Title, &vacancy.URL, &vacancy.CreatedAt, &vacancy.IsHidden)
+		err := rows.Scan(&vacancy.ID, &vacancy.Title, &vacancy.URL, &vacancy.CompanyID, &vacancy.IsHidden, &vacancy.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -264,7 +305,7 @@ func (b *Bot) getVisibleVacancies() ([]Vacancy, error) {
 
 // getAllVacancies retrieves all vacancies from the database
 func (b *Bot) getAllVacancies() ([]Vacancy, error) {
-	query := fmt.Sprintf(`SELECT id, title, url, created_at, is_hidden FROM %s ORDER BY created_at ASC`, b.tableName())
+	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s ORDER BY created_at ASC`, b.tableName())
 
 	rows, err := b.db.Query(query)
 	if err != nil {
@@ -275,7 +316,7 @@ func (b *Bot) getAllVacancies() ([]Vacancy, error) {
 	var vacancies []Vacancy
 	for rows.Next() {
 		var vacancy Vacancy
-		err := rows.Scan(&vacancy.ID, &vacancy.Title, &vacancy.URL, &vacancy.CreatedAt, &vacancy.IsHidden)
+		err := rows.Scan(&vacancy.ID, &vacancy.Title, &vacancy.URL, &vacancy.CompanyID, &vacancy.IsHidden, &vacancy.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -358,7 +399,7 @@ func (b *Bot) postDeftechVacancies() error {
 	for _, vacancyInfo := range vacancyInfos {
 		if !b.vacancyExists(vacancyInfo.Title) {
 			// This is a new vacancy
-			err := b.saveVacancy(vacancyInfo.Title, vacancyInfo.URL)
+			err := b.saveVacancy(vacancyInfo.Title, vacancyInfo.URL, vacancyInfo.Company)
 			if err != nil {
 				log.Printf("Error saving new vacancy to DB: %v", err)
 			} else {
@@ -481,7 +522,7 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 				seen[job.Title] = true
 				allJobTitles = append(allJobTitles, job.Title)
 				// Save to database with correct URL
-				if err := b.saveVacancy(job.Title, job.URL); err != nil {
+				if err := b.saveVacancy(job.Title, job.URL, "Dwarf Engineering"); err != nil {
 					log.Printf("Error saving vacancy to DB: %v", err)
 				}
 			}
@@ -578,7 +619,7 @@ func (b *Bot) handleDeftechFetchNewest(c telebot.Context) error {
 
 	// Save vacancies to database if not exists
 	for _, vacancyInfo := range vacancyInfos {
-		err := b.saveVacancy(vacancyInfo.Title, vacancyInfo.URL)
+		err := b.saveVacancy(vacancyInfo.Title, vacancyInfo.URL, vacancyInfo.Company)
 		if err != nil {
 			log.Printf("Error saving vacancy to DB: %v", err)
 		}
@@ -628,7 +669,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 
 	// Save vacancies to database if not exists
 	for _, vacancyInfo := range vacancyInfos {
-		err := b.saveVacancy(vacancyInfo.Title, vacancyInfo.URL)
+		err := b.saveVacancy(vacancyInfo.Title, vacancyInfo.URL, vacancyInfo.Company)
 		if err != nil {
 			log.Printf("Error saving vacancy to DB: %v", err)
 		}
@@ -693,6 +734,7 @@ func (b *Bot) handleGetSaved(c telebot.Context) error {
 
 	// Format and send the list
 	var message strings.Builder
+	message.WriteString(fmt.Sprintf("Total vacancies: %d\n\n", len(vacancies)))
 
 	for i, vacancy := range vacancies {
 		action := "hide"
@@ -701,7 +743,12 @@ func (b *Bot) handleGetSaved(c telebot.Context) error {
 			action = "show"
 			prefix = "unignore"
 		}
-		company := "DefTech" // Since all are from deftech
+		company := "Unknown"
+		if vacancy.CompanyID != nil {
+			if name, err := b.getCompanyNameByID(*vacancy.CompanyID); err == nil {
+				company = name
+			}
+		}
 		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancy.Title, vacancy.URL, company, action, c.Bot().Me.Username, prefix, vacancy.ID))
 	}
 
@@ -840,7 +887,7 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 			if title != "" {
 				vacancyTitles = append(vacancyTitles, title)
 				// Save to database
-				if err := b.saveVacancy(title, item.Link); err != nil {
+				if err := b.saveVacancy(title, item.Link, "Dwarf Engineering"); err != nil {
 					log.Printf("Error saving vacancy to DB: %v", err)
 				}
 			}
