@@ -17,7 +17,7 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 ```
 /
 ├── main.go                 # Application entry point
-├── internal/bot/bot.go     # Main bot logic and handlers
+├── app/bot.go              # Main bot logic and handlers
 ├── migrations/             # Database migration files
 │   └── 001_initial.sql     # Initial schema
 ├── build_and_run.sh        # Build and run script

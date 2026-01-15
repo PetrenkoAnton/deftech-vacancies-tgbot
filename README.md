@@ -94,7 +94,7 @@ Bot commands (`/get_saved_latest`) include interactive links to hide or show ind
 ```
 miltech-tgbot/
 ├── main.go               # Application entry point
-├── internal/bot/bot.go   # Bot logic, handlers, and database operations
+├── app/bot.go            # Bot logic, handlers, and database operations
 ├── migrations/           # Database schema migrations
 │   └── 001_initial.sql   # Initial schema
 ├── build_and_run.sh      # Build and run script

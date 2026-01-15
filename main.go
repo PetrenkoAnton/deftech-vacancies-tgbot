@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"miltech-tgbot/internal/bot"
+	"miltech-tgbot/app"
 
 	"github.com/joho/godotenv"
 )
@@ -63,8 +63,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid LIMIT value: %v", err)
 	}
-	if limit <= 0 || limit >= 100 {
-		log.Fatalf("LIMIT must be greater than 0 and less than 100, got: %d", limit)
+	if limit <= 0 || limit >= 50 {
+		log.Fatalf("LIMIT must be greater than 0 and less than 50, got: %d", limit)
 	}
 
 	// Initialize bot
