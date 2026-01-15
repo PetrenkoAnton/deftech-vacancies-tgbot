@@ -24,6 +24,7 @@ const (
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n\n" +
 		"/fetch_newest - Fetch newest vacancies from deftech.dou.ua\n" +
+		"/fetch_latest - Fetch latest vacancies from deftech.dou.ua\n" +
 		"/get_saved_all - Get all saved vacancies\n" +
 		"/get_saved_visible - Fetch and show visible deftech vacancies\n\n" +
 		"/dwarf_engineering - Get Dwarf Engineering vacancies\n\n" +
@@ -151,13 +152,14 @@ func (b *Bot) adminMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	markup := &telebot.ReplyMarkup{}
 	btnGetSavedVisible := markup.Data("Get saved (visible)", "/get_saved_visible")
-	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
-	btnDwarf := markup.Data("Dwarf Engineering", "/dwarf_engineering")
 	btnGetSavedAll := markup.Data("Get saved (all)", "/get_saved_all")
+	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
+	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
+	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/dwarf_engineering")
 	markup.Inline(
-		markup.Row(btnGetSavedVisible),
-		markup.Row(btnFetchNewest, btnDwarf),
-		markup.Row(btnGetSavedAll),
+		markup.Row(btnGetSavedVisible, btnGetSavedAll),
+		markup.Row(btnFetchNewest, btnFetchLatest),
+		markup.Row(btnDwarf),
 	)
 	return markup
 }
@@ -339,6 +341,9 @@ func (b *Bot) registerHandlers() {
 
 	// Get list deftech command handler
 	b.telebot.Handle("/fetch_newest", b.handleFetchNewest)
+
+	// Fetch latest deftech command handler
+	b.telebot.Handle("/fetch_latest", b.handleFetchLatest)
 
 	// Get visible deftech vacancies command handler
 	b.telebot.Handle("/get_saved_visible", b.handleGetSavedVisible)
@@ -668,6 +673,37 @@ func (b *Bot) handleFetchNewest(c telebot.Context) error {
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
 }
 
+// handleFetchLatest handles the /fetch_latest command
+func (b *Bot) handleFetchLatest(c telebot.Context) error {
+	log.Printf("Command /fetch_latest received")
+	// Show loading message
+	c.Send(fmt.Sprintf("Fetching latest vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown, telebot.Silent)
+
+	// Fetch vacancy titles from the deftech.dou.ua page
+	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
+	if err != nil {
+		log.Printf("Error fetching vacancy titles from deftech.dou.ua: %v", err)
+		return c.Send(fmt.Sprintf("Error fetching vacancies: %v", err), b.getCommandKeyboard(), telebot.Silent)
+	}
+
+	if len(vacancyInfos) == 0 {
+		return c.Send("No vacancies found.", b.getCommandKeyboard(), telebot.Silent)
+	}
+
+	// Format and send the list
+	var message strings.Builder
+
+	for i, vacancyInfo := range vacancyInfos {
+		company := vacancyInfo.Company
+		if company == "" {
+			company = "-"
+		}
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company))
+	}
+
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
+}
+
 // handleGetSavedVisible handles the /get_saved_visible command
 func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
 	log.Printf("Command /get_visible received")
@@ -723,12 +759,30 @@ func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
 
 // handleGetSavedAll handles the /get_saved_all command
 func (b *Bot) handleGetSavedAll(c telebot.Context) error {
-	log.Printf("Command /get_saved received")
+	log.Printf("Command /get_saved_all received")
 
-	// Get all vacancies from database
-	vacancies, err := b.getAllVacancies()
+	// Get all vacancies from database, ordered by latest first
+	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s ORDER BY created_at DESC`, b.tableName())
+
+	rows, err := b.db.Query(query)
 	if err != nil {
 		log.Printf("Error getting all vacancies: %v", err)
+		return c.Send("Error getting saved vacancies", b.getCommandKeyboard(), telebot.Silent)
+	}
+	defer rows.Close()
+
+	var vacancies []Vacancy
+	for rows.Next() {
+		var vacancy Vacancy
+		err := rows.Scan(&vacancy.ID, &vacancy.Title, &vacancy.URL, &vacancy.CompanyID, &vacancy.IsHidden, &vacancy.CreatedAt)
+		if err != nil {
+			log.Printf("Error scanning vacancy: %v", err)
+			continue
+		}
+		vacancies = append(vacancies, vacancy)
+	}
+	if err := rows.Err(); err != nil {
+		log.Printf("Error iterating rows: %v", err)
 		return c.Send("Error getting saved vacancies", b.getCommandKeyboard(), telebot.Silent)
 	}
 
@@ -1037,6 +1091,10 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 		return err
 	case "/fetch_newest":
 		err := b.handleFetchNewest(c)
+		c.Respond(&telebot.CallbackResponse{})
+		return err
+	case "/fetch_latest":
+		err := b.handleFetchLatest(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
 	case "/dwarf_engineering":

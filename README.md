@@ -11,6 +11,7 @@ A Telegram bot that fetches and manages vacancies from Dwarf Engineering company
 - **Commands**:
   - `/get_saved_visible` - Get visible deftech vacancies only (from database, excludes Dwarf Engineering)
   - `/fetch_newest` - Fetch and post only new deftech vacancies
+  - `/fetch_latest` - Fetch and display latest deftech vacancies (no saving)
   - `/dwarf_engineering` - Get Dwarf Engineering vacancies
   - `/get_saved_all` - Get all saved vacancies with hide/show controls (excludes Dwarf Engineering)
   - `/clear_saved` - Clear hidden vacancies from database
@@ -66,6 +67,7 @@ go build -o bin/deftech-tgbot .
 - `/help` - Show available commands
 - `/get_saved_visible` - Show only visible (non-hidden) DefTech jobs from database (excludes Dwarf Engineering)
 - `/fetch_newest` - Fetch and post only new DefTech jobs
+- `/fetch_latest` - Fetch and display latest DefTech jobs without saving
 - `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + DOU.ua)
 - `/get_saved_all` - Fetch all saved jobs with interactive hide/show links (excludes Dwarf Engineering)
 - `/clear_saved` - Clear hidden jobs from database (admin only)

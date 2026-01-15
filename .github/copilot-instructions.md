@@ -32,6 +32,7 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 - `/help` - Show available commands
 - `/get_saved_visible` - Show visible deftech vacancies from database (excludes Dwarf Engineering)
 - `/fetch_newest` - Fetch newest vacancies from deftech.dou.ua (only new ones)
+- `/fetch_latest` - Fetch latest vacancies from deftech.dou.ua (all, no saving)
 - `/dwarf_engineering` - Fetch Dwarf Engineering vacancies
 - `/get_saved_all` - List all saved vacancies (excludes Dwarf Engineering)
 - `/clear_saved` - Clear hidden vacancies
@@ -39,6 +40,7 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 ## Key Functions
 - `handleGetSavedVisible` - Display visible deftech vacancies from database
 - `handleFetchNewest` - Scrape and save only new deftech vacancies, send message if any new
+- `handleFetchLatest` - Fetch and display latest deftech vacancies without saving
 - `handleGetDwarfEngineering` - Fetch from multiple Dwarf sources
 - `handleGetSavedAll` - Display filtered saved vacancies with total count
 - `saveVacancy` - Insert vacancy if not exists
