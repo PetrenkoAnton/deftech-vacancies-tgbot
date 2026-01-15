@@ -1,5 +1,8 @@
 # Deftech Vacancies Telegram Bot
 
+[![CI](https://github.com/PetrenkoAnton/deftech-vacancies-tgbot/actions/workflows/ci.yml/badge.svg)](https://github.com/PetrenkoAnton/deftech-vacancies-tgbot/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/badge/go-1.24-blue)](https://golang.org/)
+
 A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) and Dwarf Engineering company.
 
 ## Features
