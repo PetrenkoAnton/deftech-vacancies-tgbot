@@ -9,9 +9,10 @@ A Telegram bot that fetches and manages vacancies from Dwarf Engineering company
   - [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs)
 
 - **Commands**:
-  - `/deftech` - Get visible deftech vacancies only
+  - `/get_saved_visible` - Get visible deftech vacancies only (from database, excludes Dwarf Engineering)
+  - `/fetch_newest` - Fetch and post only new deftech vacancies
   - `/dwarf_engineering` - Get Dwarf Engineering vacancies
-  - `/deftech_all` - Get all deftech vacancies with hide/show controls
+  - `/get_saved_all` - Get all saved vacancies with hide/show controls (excludes Dwarf Engineering)
   - `/clear_saved` - Clear hidden vacancies from database
 
 - **Automatic Posting**:
@@ -63,14 +64,15 @@ go build -o bin/deftech-tgbot .
 
 - `/start` - Welcome message and command overview
 - `/help` - Show available commands
-- `/deftech` - Show only visible (non-hidden) DefTech jobs
+- `/get_saved_visible` - Show only visible (non-hidden) DefTech jobs from database (excludes Dwarf Engineering)
+- `/fetch_newest` - Fetch and post only new DefTech jobs
 - `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + DOU.ua)
-- `/deftech_all` - Fetch all DefTech jobs with interactive hide/show links
+- `/get_saved_all` - Fetch all saved jobs with interactive hide/show links (excludes Dwarf Engineering)
 - `/clear_saved` - Clear hidden jobs from database (admin only)
 
 ### Automatic Posting
 
-If `INTERVAL` is set in the `.env` file (in minutes), the bot will automatically fetch deftech vacancies at the specified interval. It will only post to the admin when **new vacancies are discovered**. If no new vacancies are found, it will simply log the check without posting anything. The `/deftech` command can still be used for manual fetching of all visible jobs.
+If `INTERVAL` is set in the `.env` file (in minutes), the bot will automatically fetch deftech vacancies at the specified interval. It will only post to the admin when **new vacancies are discovered**. If no new vacancies are found, it will simply log the check without posting anything. The `/get_saved_visible` command can still be used for manual fetching of all visible jobs.
 
 ### Admin Authorization
 

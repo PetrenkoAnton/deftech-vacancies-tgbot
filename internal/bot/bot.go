@@ -22,11 +22,11 @@ import (
 const (
 	commandsText = "Available commands:\n" +
 		"/start - Start the bot\n" +
-		"/help - Show this help message\n" +
-		"/get_visible - Fetch and show visible deftech vacancies\n\n" +
-		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
+		"/help - Show this help message\n\n" +
 		"/fetch_newest - Fetch newest vacancies from deftech.dou.ua\n" +
-		"/get_saved - Get all saved vacancies\n\n" +
+		"/get_saved_all - Get all saved vacancies\n" +
+		"/get_saved_visible - Fetch and show visible deftech vacancies\n\n" +
+		"/dwarf_engineering - Get Dwarf Engineering vacancies\n\n" +
 		"/clear_saved - Clear hidden vacancies"
 )
 
@@ -150,14 +150,14 @@ func (b *Bot) adminMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 // getCommandKeyboard creates an inline keyboard with command buttons
 func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	markup := &telebot.ReplyMarkup{}
-	btnGetVisible := markup.Data("Get visible", "/get_visible")
+	btnGetSavedVisible := markup.Data("Get saved visible", "/get_saved_visible")
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnDwarf := markup.Data("Dwarf Engineering", "/dwarf_engineering")
-	btnGetSaved := markup.Data("Get saved", "/get_saved")
+	btnGetSavedAll := markup.Data("Get saved all", "/get_saved_all")
 	markup.Inline(
-		markup.Row(btnGetVisible),
+		markup.Row(btnGetSavedVisible),
 		markup.Row(btnFetchNewest, btnDwarf),
-		markup.Row(btnGetSaved),
+		markup.Row(btnGetSavedAll),
 	)
 	return markup
 }
@@ -341,10 +341,10 @@ func (b *Bot) registerHandlers() {
 	b.telebot.Handle("/fetch_newest", b.handleFetchNewest)
 
 	// Get visible deftech vacancies command handler
-	b.telebot.Handle("/get_visible", b.handleGetVisible)
+	b.telebot.Handle("/get_saved_visible", b.handleGetSavedVisible)
 
 	// Get saved vacancies command handler
-	b.telebot.Handle("/get_saved", b.handleGetSaved)
+	b.telebot.Handle("/get_saved_all", b.handleGetSavedAll)
 
 	// Clear saved command handler
 	b.telebot.Handle("/clear_saved", b.handleClearSaved)
@@ -608,7 +608,7 @@ func (b *Bot) findJobTitles(n *html.Node) []VacancyInfo {
 func (b *Bot) handleFetchNewest(c telebot.Context) error {
 	log.Printf("Command /fetch_newest received")
 	// Show loading message
-	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown, telebot.Silent)
+	c.Send(fmt.Sprintf("Fetching new vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown, telebot.Silent)
 
 	// Fetch vacancy titles from the deftech.dou.ua page
 	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
@@ -617,85 +617,32 @@ func (b *Bot) handleFetchNewest(c telebot.Context) error {
 		return c.Send(fmt.Sprintf("Error fetching vacancies: %v", err), b.getCommandKeyboard(), telebot.Silent)
 	}
 
-	// Save vacancies to database if not exists
+	// Check for new jobs and save them
+	var newVacancyInfos []VacancyInfo
 	for _, vacancyInfo := range vacancyInfos {
-		err := b.saveVacancy(vacancyInfo.Title, vacancyInfo.URL, vacancyInfo.Company)
-		if err != nil {
-			log.Printf("Error saving vacancy to DB: %v", err)
+		if !b.vacancyExists(vacancyInfo.Title) {
+			// This is a new vacancy
+			err := b.saveVacancy(vacancyInfo.Title, vacancyInfo.URL, vacancyInfo.Company)
+			if err != nil {
+				log.Printf("Error saving new vacancy to DB: %v", err)
+			} else {
+				newVacancyInfos = append(newVacancyInfos, vacancyInfo)
+			}
 		}
 	}
 
-	if len(vacancyInfos) == 0 {
-		return c.Send("No vacancies found.", b.getCommandKeyboard(), telebot.Silent)
+	// If no new vacancies, send message and return
+	if len(newVacancyInfos) == 0 {
+		return c.Send("No new vacancies found.", b.getCommandKeyboard(), telebot.Silent)
 	}
 
-	// Format and send the list as a simple numbered list
+	log.Printf("Found %d new vacancies", len(newVacancyInfos))
+
+	// Format the message with only new vacancies
 	var message strings.Builder
+	message.WriteString("**New vacancies:**\n\n")
 
-	for i, vacancyInfo := range vacancyInfos {
-		id, hidden, err := b.getVacancyIDAndHiddenByTitle(vacancyInfo.Title)
-		if err != nil {
-			log.Printf("Error getting job ID for %s: %v", vacancyInfo.Title, err)
-			continue
-		}
-		action := "hide"
-		prefix := "ignore"
-		if hidden {
-			action = "show"
-			prefix = "unignore"
-		}
-		company := vacancyInfo.Company
-		if company == "" {
-			company = "-"
-		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
-	}
-
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
-}
-
-// handleGetVisible handles the /get_visible command
-func (b *Bot) handleGetVisible(c telebot.Context) error {
-	log.Printf("Command /get_visible received")
-	// Show loading message
-	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown, telebot.Silent)
-
-	// Fetch job titles from the deftech.dou.ua page
-	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
-	if err != nil {
-		log.Printf("Error fetching vacancies from %s: %v", b.deftechURL, err)
-		return c.Send(fmt.Sprintf("Error fetching vacancies: %v", err), b.getCommandKeyboard(), telebot.Silent)
-	}
-
-	// Save vacancies to database if not exists
-	for _, vacancyInfo := range vacancyInfos {
-		err := b.saveVacancy(vacancyInfo.Title, vacancyInfo.URL, vacancyInfo.Company)
-		if err != nil {
-			log.Printf("Error saving vacancy to DB: %v", err)
-		}
-	}
-
-	// Filter vacancyInfos to only show visible vacancies
-	var visibleVacancyInfos []VacancyInfo
-	for _, vacancyInfo := range vacancyInfos {
-		_, hidden, err := b.getVacancyIDAndHiddenByTitle(vacancyInfo.Title)
-		if err != nil {
-			// If vacancy doesn't exist in DB yet (just saved), it's visible by default
-			visibleVacancyInfos = append(visibleVacancyInfos, vacancyInfo)
-		} else if !hidden {
-			// Vacancy exists and is not hidden
-			visibleVacancyInfos = append(visibleVacancyInfos, vacancyInfo)
-		}
-	}
-
-	if len(visibleVacancyInfos) == 0 {
-		return c.Send("No visible vacancies found.", b.getCommandKeyboard(), telebot.Silent)
-	}
-
-	// Format and send the list as a simple numbered list
-	var message strings.Builder
-
-	for i, vacancyInfo := range visibleVacancyInfos {
+	for i, vacancyInfo := range newVacancyInfos {
 		id, hidden, err := b.getVacancyIDAndHiddenByTitle(vacancyInfo.Title)
 		if err != nil {
 			log.Printf("Error getting vacancy ID for %s: %v", vacancyInfo.Title, err)
@@ -717,8 +664,61 @@ func (b *Bot) handleGetVisible(c telebot.Context) error {
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
 }
 
-// handleGetSaved handles the /get_saved command
-func (b *Bot) handleGetSaved(c telebot.Context) error {
+// handleGetSavedVisible handles the /get_saved_visible command
+func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
+	log.Printf("Command /get_visible received")
+	// Show loading message
+	c.Send(fmt.Sprintf("Fetching visible vacancies from db →"), telebot.ModeMarkdown, telebot.Silent)
+
+	// Get visible vacancies from database
+	vacancies, err := b.getVisibleVacancies()
+	if err != nil {
+		log.Printf("Error getting visible vacancies: %v", err)
+		return c.Send("Error getting visible vacancies", b.getCommandKeyboard(), telebot.Silent)
+	}
+
+	// Filter out Dwarf Engineering vacancies
+	var filteredVacancies []Vacancy
+	for _, vacancy := range vacancies {
+		company := "Unknown"
+		if vacancy.CompanyID != nil {
+			if name, err := b.getCompanyNameByID(*vacancy.CompanyID); err == nil {
+				company = name
+			}
+		}
+		if company != "Dwarf Engineering" {
+			filteredVacancies = append(filteredVacancies, vacancy)
+		}
+	}
+
+	if len(filteredVacancies) == 0 {
+		return c.Send("No visible vacancies found.", b.getCommandKeyboard(), telebot.Silent)
+	}
+
+	// Format and send the list
+	var message strings.Builder
+
+	for i, vacancy := range filteredVacancies {
+		action := "hide"
+		prefix := "ignore"
+		if vacancy.IsHidden {
+			action = "show"
+			prefix = "unignore"
+		}
+		company := "Unknown"
+		if vacancy.CompanyID != nil {
+			if name, err := b.getCompanyNameByID(*vacancy.CompanyID); err == nil {
+				company = name
+			}
+		}
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancy.Title, vacancy.URL, company, action, c.Bot().Me.Username, prefix, vacancy.ID))
+	}
+
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
+}
+
+// handleGetSavedAll handles the /get_saved_all command
+func (b *Bot) handleGetSavedAll(c telebot.Context) error {
 	log.Printf("Command /get_saved received")
 
 	// Get all vacancies from database
@@ -1027,8 +1027,8 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 	log.Printf("Callback received: %s", data)
 
 	switch data {
-	case "/get_visible":
-		err := b.handleGetVisible(c)
+	case "/get_saved_visible":
+		err := b.handleGetSavedVisible(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
 	case "/fetch_newest":
@@ -1039,8 +1039,8 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 		err := b.handleGetDwarfEngineering(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
-	case "/get_saved":
-		err := b.handleGetSaved(c)
+	case "/get_saved_all":
+		err := b.handleGetSavedAll(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
 	default:
