@@ -38,7 +38,7 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
 
 1. Clone and install:
 ```bash
-git clone https://github.com/PetrenkoAnton/deftech-vacancies-tgbot
+git clone https://github.com/PetrenkoAnton/deftech-vacancies-tgbot.git
 cd deftech-vacancies-tgbot
 go mod download
 ```
