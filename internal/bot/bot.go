@@ -29,6 +29,13 @@ const (
 		"/fetch_latest - Fetch latest vacancies from deftech.dou.ua\n\n" +
 		"/dwarf_engineering - Fetch Dwarf Engineering vacancies\n\n" +
 		"/clear_saved - Clear hidden vacancies"
+
+	// Company names
+	dwarfEngineeringCompany = "Dwarf Engineering"
+
+	// Action prefixes for deep links
+	ignorePrefix   = "ignore"
+	unignorePrefix = "unignore"
 )
 
 // Vacancy represents a vacancy listing
@@ -237,6 +244,64 @@ func (b *Bot) getCompanyNameByID(id int) (string, error) {
 	return name, err
 }
 
+// getCompanyName safely gets the company name for a vacancy
+func (b *Bot) getCompanyName(vacancy Vacancy) string {
+	if vacancy.CompanyID != nil {
+		if name, err := b.getCompanyNameByID(*vacancy.CompanyID); err == nil {
+			return name
+		}
+	}
+	return "Unknown"
+}
+
+// filterNonDwarfEngineeringVacancies filters out Dwarf Engineering vacancies
+func (b *Bot) filterNonDwarfEngineeringVacancies(vacancies []Vacancy) []Vacancy {
+	var filtered []Vacancy
+	for _, vacancy := range vacancies {
+		if b.getCompanyName(vacancy) != dwarfEngineeringCompany {
+			filtered = append(filtered, vacancy)
+		}
+	}
+	return filtered
+}
+
+// getTotalVacancyCountExcludingDwarf gets the total count of vacancies excluding Dwarf Engineering
+func (b *Bot) getTotalVacancyCountExcludingDwarf() (int, error) {
+	query := fmt.Sprintf(`
+		SELECT COUNT(*) FROM %s v
+		LEFT JOIN companies c ON v.company_id = c.id
+		WHERE c.name != ? OR c.name IS NULL
+	`, b.tableName())
+
+	var count int
+	err := b.db.QueryRow(query, dwarfEngineeringCompany).Scan(&count)
+	return count, err
+}
+
+// getLatestVacancies gets the latest N vacancies from database
+func (b *Bot) getLatestVacancies(limit int) ([]Vacancy, error) {
+	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s ORDER BY created_at DESC LIMIT %d`, b.tableName(), limit)
+
+	rows, err := b.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var vacancies []Vacancy
+	for rows.Next() {
+		var vacancy Vacancy
+		err := rows.Scan(&vacancy.ID, &vacancy.Title, &vacancy.URL, &vacancy.CompanyID, &vacancy.IsHidden, &vacancy.CreatedAt)
+		if err != nil {
+			log.Printf("Error scanning vacancy: %v", err)
+			continue
+		}
+		vacancies = append(vacancies, vacancy)
+	}
+
+	return vacancies, rows.Err()
+}
+
 // getVacancyIDAndHiddenByTitle gets the vacancy ID and hidden status by title
 func (b *Bot) getVacancyIDAndHiddenByTitle(title string) (int, bool, error) {
 	var id int
@@ -244,6 +309,35 @@ func (b *Bot) getVacancyIDAndHiddenByTitle(title string) (int, bool, error) {
 	query := fmt.Sprintf("SELECT id, is_hidden FROM %s WHERE title = ?", b.tableName())
 	err := b.db.QueryRow(query, title).Scan(&id, &hidden)
 	return id, hidden, err
+}
+
+// formatVacancyMessage formats a single vacancy for display
+func (b *Bot) formatVacancyMessage(index int, vacancy Vacancy, botUsername string) string {
+	action := "hide"
+	prefix := ignorePrefix
+	if vacancy.IsHidden {
+		action = "show"
+		prefix = unignorePrefix
+	}
+	company := b.getCompanyName(vacancy)
+	return fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n",
+		index+1, vacancy.Title, vacancy.URL, company, action, botUsername, prefix, vacancy.ID)
+}
+
+// formatVacancyInfoMessage formats a vacancy info for display (used for fetched vacancies)
+func (b *Bot) formatVacancyInfoMessage(index int, vacancyInfo VacancyInfo, id int, hidden bool, botUsername string) string {
+	action := "hide"
+	prefix := ignorePrefix
+	if hidden {
+		action = "show"
+		prefix = unignorePrefix
+	}
+	company := vacancyInfo.Company
+	if company == "" {
+		company = "-"
+	}
+	return fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n",
+		index+1, vacancyInfo.Title, vacancyInfo.URL, company, action, botUsername, prefix, id)
 }
 
 // setVacancyHidden sets the hidden status of a vacancy by ID
@@ -261,27 +355,25 @@ func (b *Bot) getVacancyTitleByID(id int) (string, error) {
 	return title, err
 }
 
-// getVacancies retrieves vacancies from the database
-func (b *Bot) getVacancies() ([]Vacancy, error) {
-	query := fmt.Sprintf(`SELECT id, title, url, created_at, is_hidden FROM %s ORDER BY created_at ASC`, b.tableName())
-
-	rows, err := b.db.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var vacancies []Vacancy
-	for rows.Next() {
-		var vacancy Vacancy
-		err := rows.Scan(&vacancy.ID, &vacancy.Title, &vacancy.URL, &vacancy.CreatedAt, &vacancy.IsHidden)
-		if err != nil {
-			return nil, err
+// sendVacancyList sends a formatted list of vacancies
+func (b *Bot) sendVacancyList(c telebot.Context, vacancies []Vacancy, totalCount, limit int) error {
+	if len(vacancies) == 0 {
+		if totalCount == 0 {
+			return c.Send("No saved vacancies found.", b.getCommandKeyboard(), telebot.Silent)
+		} else {
+			return c.Send(fmt.Sprintf("No vacancies to display (showing latest %d of %d total).", limit, totalCount), b.getCommandKeyboard(), telebot.Silent)
 		}
-		vacancies = append(vacancies, vacancy)
 	}
 
-	return vacancies, rows.Err()
+	// Format and send the list
+	var message strings.Builder
+	message.WriteString(fmt.Sprintf("Total vacancies: %d\n\n", totalCount))
+
+	for i, vacancy := range vacancies {
+		message.WriteString(b.formatVacancyMessage(i, vacancy, c.Bot().Me.Username))
+	}
+
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
 }
 
 // getVisibleVacancies retrieves all non-hidden vacancies from the database
@@ -659,17 +751,7 @@ func (b *Bot) handleFetchNewest(c telebot.Context) error {
 			log.Printf("Error getting vacancy ID for %s: %v", vacancyInfo.Title, err)
 			continue
 		}
-		action := "hide"
-		prefix := "ignore"
-		if hidden {
-			action = "show"
-			prefix = "unignore"
-		}
-		company := vacancyInfo.Company
-		if company == "" {
-			company = "-"
-		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
+		message.WriteString(b.formatVacancyInfoMessage(i, vacancyInfo, id, hidden, c.Bot().Me.Username))
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
@@ -719,19 +801,7 @@ func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
 		return c.Send("Error getting visible vacancies", b.getCommandKeyboard(), telebot.Silent)
 	}
 
-	// Filter out Dwarf Engineering vacancies
-	var filteredVacancies []Vacancy
-	for _, vacancy := range vacancies {
-		company := "Unknown"
-		if vacancy.CompanyID != nil {
-			if name, err := b.getCompanyNameByID(*vacancy.CompanyID); err == nil {
-				company = name
-			}
-		}
-		if company != "Dwarf Engineering" {
-			filteredVacancies = append(filteredVacancies, vacancy)
-		}
-	}
+	filteredVacancies := b.filterNonDwarfEngineeringVacancies(vacancies)
 
 	if len(filteredVacancies) == 0 {
 		return c.Send("No visible vacancies found.", b.getCommandKeyboard(), telebot.Silent)
@@ -741,19 +811,7 @@ func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
 	var message strings.Builder
 
 	for i, vacancy := range filteredVacancies {
-		action := "hide"
-		prefix := "ignore"
-		if vacancy.IsHidden {
-			action = "show"
-			prefix = "unignore"
-		}
-		company := "Unknown"
-		if vacancy.CompanyID != nil {
-			if name, err := b.getCompanyNameByID(*vacancy.CompanyID); err == nil {
-				company = name
-			}
-		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancy.Title, vacancy.URL, company, action, c.Bot().Me.Username, prefix, vacancy.ID))
+		message.WriteString(b.formatVacancyMessage(i, vacancy, c.Bot().Me.Username))
 	}
 
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
@@ -765,88 +823,21 @@ func (b *Bot) handleGetSavedLatest(c telebot.Context) error {
 	// Show loading message
 	c.Send(fmt.Sprintf("Getting %d latest saved vacancies from db →", b.limit), telebot.ModeMarkdown, telebot.Silent)
 
-	// First, get total count of all vacancies (excluding Dwarf Engineering)
-	totalCountQuery := fmt.Sprintf(`
-		SELECT COUNT(*) FROM %s v
-		LEFT JOIN companies c ON v.company_id = c.id
-		WHERE c.name != 'Dwarf Engineering' OR c.name IS NULL
-	`, b.tableName())
-
-	var totalCount int
-	err := b.db.QueryRow(totalCountQuery).Scan(&totalCount)
+	totalCount, err := b.getTotalVacancyCountExcludingDwarf()
 	if err != nil {
 		log.Printf("Error getting total count: %v", err)
 		return c.Send("Error getting saved vacancies", b.getCommandKeyboard(), telebot.Silent)
 	}
 
-	// Get limited vacancies from database, ordered by latest first
-	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s ORDER BY created_at DESC LIMIT %d`, b.tableName(), b.limit)
-
-	rows, err := b.db.Query(query)
+	vacancies, err := b.getLatestVacancies(b.limit)
 	if err != nil {
-		log.Printf("Error getting all vacancies: %v", err)
-		return c.Send("Error getting saved vacancies", b.getCommandKeyboard(), telebot.Silent)
-	}
-	defer rows.Close()
-
-	var vacancies []Vacancy
-	for rows.Next() {
-		var vacancy Vacancy
-		err := rows.Scan(&vacancy.ID, &vacancy.Title, &vacancy.URL, &vacancy.CompanyID, &vacancy.IsHidden, &vacancy.CreatedAt)
-		if err != nil {
-			log.Printf("Error scanning vacancy: %v", err)
-			continue
-		}
-		vacancies = append(vacancies, vacancy)
-	}
-	if err := rows.Err(); err != nil {
-		log.Printf("Error iterating rows: %v", err)
+		log.Printf("Error getting latest vacancies: %v", err)
 		return c.Send("Error getting saved vacancies", b.getCommandKeyboard(), telebot.Silent)
 	}
 
-	// Filter out Dwarf Engineering vacancies
-	var filteredVacancies []Vacancy
-	for _, vacancy := range vacancies {
-		company := "Unknown"
-		if vacancy.CompanyID != nil {
-			if name, err := b.getCompanyNameByID(*vacancy.CompanyID); err == nil {
-				company = name
-			}
-		}
-		if company != "Dwarf Engineering" {
-			filteredVacancies = append(filteredVacancies, vacancy)
-		}
-	}
+	filteredVacancies := b.filterNonDwarfEngineeringVacancies(vacancies)
 
-	if len(filteredVacancies) == 0 {
-		if totalCount == 0 {
-			return c.Send("No saved vacancies found.", b.getCommandKeyboard(), telebot.Silent)
-		} else {
-			return c.Send(fmt.Sprintf("No vacancies to display (showing latest %d of %d total).", b.limit, totalCount), b.getCommandKeyboard(), telebot.Silent)
-		}
-	}
-
-	// Format and send the list
-	var message strings.Builder
-	message.WriteString(fmt.Sprintf("Total vacancies: %d\n\n", totalCount))
-
-	for i, vacancy := range filteredVacancies {
-		action := "hide"
-		prefix := "ignore"
-		if vacancy.IsHidden {
-			action = "show"
-			prefix = "unignore"
-		}
-		company := "Unknown"
-		if vacancy.CompanyID != nil {
-			if name, err := b.getCompanyNameByID(*vacancy.CompanyID); err == nil {
-				company = name
-			}
-		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancy.Title, vacancy.URL, company, action, c.Bot().Me.Username, prefix, vacancy.ID))
-	}
-
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
+	return b.sendVacancyList(c, filteredVacancies, totalCount, b.limit)
 }
 
 // handleGetDwarfEngineering handles the /dwarf_engineering command

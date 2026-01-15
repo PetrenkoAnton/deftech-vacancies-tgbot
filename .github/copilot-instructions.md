@@ -66,10 +66,10 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 
 ## AI Assistant Guidelines
 - **DONT AUTO COMMIT** - Always wait for explicit user instruction before committing changes
+- **WRITE SHORT COMMITS** - Keep commit messages concise and relevant
 - When modifying bot commands, update both handler registration and callback cases
 - Database changes require migration updates
 - Test web scraping functions carefully (sites may change)
 - Maintain consistent error handling and user feedback
 - Use absolute paths when referencing files in the workspace
-- Always write as short as posible commit message
 - Always update README and actualize .github/copilot-instructions.md before committing changes
