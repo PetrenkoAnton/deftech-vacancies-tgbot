@@ -135,10 +135,23 @@ func (b *Bot) adminMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 				fullName += " " + user.LastName
 			}
 			log.Printf("Unauthorized access attempt - User: %s (@%s) ID: %d", fullName, user.Username, user.ID)
-			return c.Send("Sorry, you are not authorized to use this bot.")
+			return c.Send("Sorry, you are not authorized to use this bot.", b.getCommandKeyboard())
 		}
 		return next(c)
 	}
+}
+
+// getCommandKeyboard creates an inline keyboard with command buttons
+func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
+	markup := &telebot.ReplyMarkup{}
+	btnDeftech := markup.Data("Deftech Visible", "/deftech")
+	btnDeftechAll := markup.Data("Deftech All", "/deftech_all")
+	btnDwarf := markup.Data("Dwarf Engineering", "/dwarf_engineering")
+	markup.Inline(
+		markup.Row(btnDeftech, btnDeftechAll),
+		markup.Row(btnDwarf),
+	)
+	return markup
 }
 
 // runMigrations runs database migrations
@@ -385,7 +398,7 @@ func (b *Bot) postDeftechVacancies() error {
 		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
 	}
 
-	_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview)
+	_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard())
 	if err != nil {
 		return fmt.Errorf("error sending new vacancies to group: %w", err)
 	}
@@ -404,47 +417,47 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		idStr := strings.TrimPrefix(payload, "ignore_")
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			return c.Send("Invalid ignore ID")
+			return c.Send("Invalid ignore ID", b.getCommandKeyboard())
 		}
 		title, err := b.getVacancyTitleByID(id)
 		if err != nil {
 			log.Printf("Error getting title for vacancy %d: %v", id, err)
-			return c.Send("Error ignoring job")
+			return c.Send("Error ignoring job", b.getCommandKeyboard())
 		}
 		err = b.setVacancyHidden(id, true)
 		if err != nil {
 			log.Printf("Error hiding vacancy %d: %v", id, err)
-			return c.Send("Error hiding job")
+			return c.Send("Error hiding job", b.getCommandKeyboard())
 		}
-		return c.Send(fmt.Sprintf("%s is hidden", title))
+		return c.Send(fmt.Sprintf("%s is hidden", title), b.getCommandKeyboard())
 	}
 	if strings.HasPrefix(payload, "unignore_") {
 		idStr := strings.TrimPrefix(payload, "unignore_")
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			return c.Send("Invalid unignore ID")
+			return c.Send("Invalid unignore ID", b.getCommandKeyboard())
 		}
 		title, err := b.getVacancyTitleByID(id)
 		if err != nil {
 			log.Printf("Error getting title for vacancy %d: %v", id, err)
-			return c.Send("Error showing job")
+			return c.Send("Error showing job", b.getCommandKeyboard())
 		}
 		err = b.setVacancyHidden(id, false)
 		if err != nil {
 			log.Printf("Error showing vacancy %d: %v", id, err)
-			return c.Send("Error showing job")
+			return c.Send("Error showing job", b.getCommandKeyboard())
 		}
-		return c.Send(fmt.Sprintf("%s is shown", title))
+		return c.Send(fmt.Sprintf("%s is shown", title), b.getCommandKeyboard())
 	}
 
 	startText := "Hello! Welcome to the bot.\n\n" + commandsText
-	return c.Send(startText)
+	return c.Send(startText, b.getCommandKeyboard())
 }
 
 // handleHelp handles the /help command
 func (b *Bot) handleHelp(c telebot.Context) error {
 	log.Printf("Command /help received")
-	return c.Send(commandsText)
+	return c.Send(commandsText, b.getCommandKeyboard())
 }
 
 // fetchJobTitles fetches and parses vacancy titles from all careers pages
@@ -554,13 +567,13 @@ func (b *Bot) findJobTitles(n *html.Node) []VacancyInfo {
 func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 	log.Printf("Command /deftech_all received")
 	// Show loading message
-	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown)
+	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown, b.getCommandKeyboard())
 
 	// Fetch vacancy titles from the deftech.dou.ua page
 	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
 	if err != nil {
 		log.Printf("Error fetching vacancy titles from deftech.dou.ua: %v", err)
-		return c.Send(fmt.Sprintf("Error fetching vacancies: %v", err))
+		return c.Send(fmt.Sprintf("Error fetching vacancies: %v", err), b.getCommandKeyboard())
 	}
 
 	// Save vacancies to database if not exists
@@ -572,7 +585,7 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 	}
 
 	if len(vacancyInfos) == 0 {
-		return c.Send("No vacancies found.")
+		return c.Send("No vacancies found.", b.getCommandKeyboard())
 	}
 
 	// Format and send the list as a simple numbered list
@@ -597,20 +610,20 @@ func (b *Bot) handleGetDeftechAll(c telebot.Context) error {
 		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard())
 }
 
 // handleGetDeftech handles the /deftech command
 func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	log.Printf("Command /deftech received")
 	// Show loading message
-	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown)
+	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown, b.getCommandKeyboard())
 
 	// Fetch job titles from the deftech.dou.ua page
 	vacancyInfos, err := b.FetchJobTitlesFromDeftech()
 	if err != nil {
 		log.Printf("Error fetching vacancies from %s: %v", b.deftechURL, err)
-		return c.Send(fmt.Sprintf("Error fetching vacancies: %v", err))
+		return c.Send(fmt.Sprintf("Error fetching vacancies: %v", err), b.getCommandKeyboard())
 	}
 
 	// Save vacancies to database if not exists
@@ -635,7 +648,7 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 	}
 
 	if len(visibleVacancyInfos) == 0 {
-		return c.Send("No visible vacancies found.")
+		return c.Send("No visible vacancies found.", b.getCommandKeyboard())
 	}
 
 	// Format and send the list as a simple numbered list
@@ -660,14 +673,14 @@ func (b *Bot) handleGetDeftech(c telebot.Context) error {
 		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, c.Bot().Me.Username, prefix, id))
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard())
 }
 
 // handleGetDwarfEngineering handles the /dwarf_engineering command
 func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	log.Printf("Command /dwarf_engineering received")
 	// Show loading message
-	c.Send("Fetching Dwarf Engineering vacancies →")
+	c.Send("Fetching Dwarf Engineering vacancies →", b.getCommandKeyboard())
 
 	var peopleforceTitles, douTitles []string
 
@@ -690,7 +703,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	}
 
 	if len(peopleforceTitles) == 0 && len(douTitles) == 0 {
-		return c.Send("No vacancies found from either source.")
+		return c.Send("No vacancies found from either source.", b.getCommandKeyboard())
 	}
 
 	// Format and send the list
@@ -725,7 +738,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		}
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview)
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard())
 }
 
 // handleTruncate handles the /truncate command
@@ -735,9 +748,9 @@ func (b *Bot) handleTruncate(c telebot.Context) error {
 	_, err := b.db.Exec(query)
 	if err != nil {
 		log.Printf("Error truncating vacancies: %v", err)
-		return c.Send("Error truncating vacancies table")
+		return c.Send("Error truncating vacancies table", b.getCommandKeyboard())
 	}
-	return c.Send("Vacancies table truncated successfully")
+	return c.Send("Vacancies table truncated successfully", b.getCommandKeyboard())
 }
 
 // handleTestPost handles the /test_post command
@@ -746,10 +759,10 @@ func (b *Bot) handleTestPost(c telebot.Context) error {
 
 	if err := b.postMessage(); err != nil {
 		log.Printf("Error posting message: %v", err)
-		return c.Send(fmt.Sprintf("Error posting message: %v", err))
+		return c.Send(fmt.Sprintf("Error posting message: %v", err), b.getCommandKeyboard())
 	}
 
-	return c.Send("Test message posted to group successfully")
+	return c.Send("Test message posted to group successfully", b.getCommandKeyboard())
 }
 
 // RSSFeed represents the RSS feed structure
@@ -924,15 +937,25 @@ func collectText(n *html.Node, text *strings.Builder) {
 func (b *Bot) handleText(c telebot.Context) error {
 	log.Printf("Text message received: %s", c.Text())
 	// Echo the message back
-	return c.Send("You said: " + c.Text())
+	return c.Send("You said: " + c.Text(), b.getCommandKeyboard())
 }
 
 // handleCallback handles inline button callbacks
 func (b *Bot) handleCallback(c telebot.Context) error {
-	log.Printf("Callback received: %s", c.Callback().Data)
+	data := c.Callback().Data
+	log.Printf("Callback received: %s", data)
 
-	// For now, just acknowledge the callback without functionality
-	return c.Respond(&telebot.CallbackResponse{Text: "Ignore functionality not implemented yet"})
+	switch data {
+	case "/deftech":
+		return b.handleGetDeftech(c)
+	case "/deftech_all":
+		return b.handleGetDeftechAll(c)
+	case "/dwarf_engineering":
+		return b.handleGetDwarfEngineering(c)
+	default:
+		// For now, just acknowledge the callback without functionality
+		return c.Respond(&telebot.CallbackResponse{Text: "Ignore functionality not implemented yet"})
+	}
 }
 
 // Start starts the bot
