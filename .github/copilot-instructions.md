@@ -67,5 +67,4 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 - Use absolute paths when referencing files in the workspace
 - Do not auto commit and push changes
 - Always write short commit message
-- Always update README and actualize .cursorrules before committing changes</content>
-<parameter name="filePath">/Users/antonpetrenko/Projects/miltech-tgbot/.cursorrules
+- Always update README and actualize .github/copilot-instructions.md before committing changes
