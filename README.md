@@ -35,7 +35,7 @@ A Telegram bot that fetches and manages vacancies from Dwarf Engineering company
 
 1. Clone and install:
 ```bash
-git clone <repository-url>
+git clone https://github.com/PetrenkoAnton/miltech-tgbot.git
 cd miltech-tgbot
 go mod download
 ```
@@ -87,18 +87,22 @@ All bot commands require admin authorization. The bot uses centralized middlewar
 
 ### Hide/Show Functionality
 
-Bot commands (`/deftech`, `/deftech_all`) include interactive links to hide or show individual vacancies. Click the links to toggle vacancy visibility. Hidden vacancies won't appear in `/deftech` command results.
+Bot commands (`/get_saved_latest`) include interactive links to hide or show individual vacancies. Click the links to toggle vacancy visibility. Hidden vacancies won't appear in `/get_saved_visible` command results.
 
 ## Project Structure
 
 ```
 miltech-tgbot/
-├── internal/bot/bot.go    # Bot logic, handlers, and database operations
+├── main.go               # Application entry point
+├── internal/bot/bot.go   # Bot logic, handlers, and database operations
 ├── migrations/           # Database schema migrations
-├── main.go              # Application entry point
-├── go.mod               # Go module dependencies
-├── .env                 # Environment configuration
-├── VERSION              # Bot version file
-├── deftech-tgbot.db     # SQLite database (auto-created, configurable via DB_NAME)
-└── bin/                 # Compiled binaries
+│   └── 001_initial.sql   # Initial schema
+├── build_and_run.sh      # Build and run script
+├── .env                  # Environment configuration
+├── .env.example          # Environment configuration template
+├── VERSION               # Bot version file
+├── go.mod                # Go module dependencies
+├── go.sum                # Go module checksums
+├── deftech-tgbot.db      # SQLite database (auto-created, configurable via DB_NAME)
+└── bin/                  # Compiled binaries
 ```
