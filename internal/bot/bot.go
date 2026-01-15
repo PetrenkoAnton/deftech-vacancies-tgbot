@@ -64,10 +64,11 @@ type Bot struct {
 	dbName         string
 	vacanciesTable string
 	deftechURL     string
+	limit          int
 }
 
 // New creates a new bot instance
-func New(token string, adminID string, intervalStr string, dbName string, vacanciesTable string, deftechURL string) (*Bot, error) {
+func New(token string, adminID string, intervalStr string, dbName string, vacanciesTable string, deftechURL string, limit int) (*Bot, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -102,6 +103,7 @@ func New(token string, adminID string, intervalStr string, dbName string, vacanc
 		dbName:         dbName,
 		vacanciesTable: vacanciesTable,
 		deftechURL:     deftechURL,
+		limit:          limit,
 	}
 
 	// Apply admin middleware globally
@@ -284,7 +286,7 @@ func (b *Bot) getVacancies() ([]Vacancy, error) {
 
 // getVisibleVacancies retrieves all non-hidden vacancies from the database
 func (b *Bot) getVisibleVacancies() ([]Vacancy, error) {
-	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s WHERE is_hidden = FALSE ORDER BY created_at ASC`, b.tableName())
+	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s WHERE is_hidden = FALSE ORDER BY created_at ASC LIMIT %d`, b.tableName(), b.limit)
 
 	rows, err := b.db.Query(query)
 	if err != nil {
@@ -761,8 +763,8 @@ func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
 func (b *Bot) handleGetSavedAll(c telebot.Context) error {
 	log.Printf("Command /get_saved_all received")
 
-	// Get all vacancies from database, ordered by latest first
-	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s ORDER BY created_at DESC`, b.tableName())
+	// Get all vacancies from database, ordered by latest first, limited
+	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s ORDER BY created_at DESC LIMIT %d`, b.tableName(), b.limit)
 
 	rows, err := b.db.Query(query)
 	if err != nil {

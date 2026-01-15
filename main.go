@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"miltech-tgbot/internal/bot"
@@ -53,9 +54,18 @@ func main() {
 		vacanciesTable = "vacancies"
 	}
 
+	// Get limit from environment variable (optional, default to 10)
+	limitStr := os.Getenv("LIMIT")
+	limit := 10
+	if limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
 	// Initialize bot
 	log.Println("Initializing Telegram bot →")
-	telegramBot, err := bot.New(botToken, adminID, intervalStr, dbName, vacanciesTable, deftechURL)
+	telegramBot, err := bot.New(botToken, adminID, intervalStr, dbName, vacanciesTable, deftechURL, limit)
 	if err != nil {
 		log.Fatalf("Failed to initialize bot: %v", err)
 	}
