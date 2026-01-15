@@ -1,4 +1,4 @@
-# Copilot Rules for Miltech Telegram Bot
+# Copilot Rules for Deftech Vacancies Telegram Bot
 
 - **DONT AUTO COMMIT** - Always wait for explicit user instruction before committing changes
 - **WRITE SHORT COMMITS** - Keep commit messages concise and relevant
@@ -72,5 +72,5 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 - Database changes require migration updates
 - Test web scraping functions carefully (sites may change)
 - Maintain consistent error handling and user feedback
-- Use abssssolute paths when referencing files in the workspace
-- Always update README and actualize .github/copilot-instructions.md before committing changes
+- Use absolute paths when referencing files in the workspace
+- Always update README and actualize .github/main-instructions.md before committing changes

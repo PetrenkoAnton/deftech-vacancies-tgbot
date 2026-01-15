@@ -1,12 +1,12 @@
-# Miltech Telegram Bot
+# Deftech vacancies Telegram bot
 
-A Telegram bot that fetches and manages vacancies from Dwarf Engineering company and [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs).
+A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) and Dwarf Engineering company.
 
 ## Features
 
 - **Job Sources**:
-  - Dwarf Engineering ([dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers) and [jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies))
   - [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs)
+  - Dwarf Engineering ([dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers) and [jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies))
 
 - **Commands**:
   - `/get_saved_visible` - Get visible deftech vacancies only (from database, excludes Dwarf Engineering)
@@ -35,8 +35,8 @@ A Telegram bot that fetches and manages vacancies from Dwarf Engineering company
 
 1. Clone and install:
 ```bash
-git clone https://github.com/PetrenkoAnton/miltech-tgbot.git
-cd miltech-tgbot
+git clone https://github.com/PetrenkoAnton/deftech-vacancies-tgbot
+cd deftech-vacancies-tgbot
 go mod download
 ```
 
