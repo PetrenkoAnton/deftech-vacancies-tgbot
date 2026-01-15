@@ -23,11 +23,11 @@ const (
 	commandsText = "Available commands:\n" +
 		"/start - Start the bot\n" +
 		"/help - Show this help message\n" +
-		"/deftech - Fetch and show visible deftech vacancies\n\n" +
+		"/get_visible - Fetch and show visible deftech vacancies\n\n" +
 		"/dwarf_engineering - Get Dwarf Engineering vacancies\n" +
 		"/fetch_newest - Fetch newest vacancies from deftech.dou.ua\n" +
 		"/get_saved - Get all saved vacancies\n\n" +
-		"/truncate - Truncate vacancies table"
+		"/clear_saved - Clear hidden vacancies"
 )
 
 // Vacancy represents a vacancy listing
@@ -150,12 +150,12 @@ func (b *Bot) adminMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 // getCommandKeyboard creates an inline keyboard with command buttons
 func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	markup := &telebot.ReplyMarkup{}
-	btnDeftech := markup.Data("Deftech Visible", "/deftech")
+	btnGetVisible := markup.Data("Get visible", "/get_visible")
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnDwarf := markup.Data("Dwarf Engineering", "/dwarf_engineering")
 	btnGetSaved := markup.Data("Get saved", "/get_saved")
 	markup.Inline(
-		markup.Row(btnDeftech),
+		markup.Row(btnGetVisible),
 		markup.Row(btnFetchNewest, btnDwarf),
 		markup.Row(btnGetSaved),
 	)
@@ -341,13 +341,13 @@ func (b *Bot) registerHandlers() {
 	b.telebot.Handle("/fetch_newest", b.handleFetchNewest)
 
 	// Get visible deftech vacancies command handler
-	b.telebot.Handle("/deftech", b.handleGetDeftech)
+	b.telebot.Handle("/get_visible", b.handleGetVisible)
 
 	// Get saved vacancies command handler
 	b.telebot.Handle("/get_saved", b.handleGetSaved)
 
-	// Truncate command handler
-	b.telebot.Handle("/truncate", b.handleTruncate)
+	// Clear saved command handler
+	b.telebot.Handle("/clear_saved", b.handleClearSaved)
 
 	// Inline button callback handler
 	b.telebot.Handle(telebot.OnCallback, b.handleCallback)
@@ -654,9 +654,9 @@ func (b *Bot) handleFetchNewest(c telebot.Context) error {
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
 }
 
-// handleGetDeftech handles the /deftech command
-func (b *Bot) handleGetDeftech(c telebot.Context) error {
-	log.Printf("Command /deftech received")
+// handleGetVisible handles the /get_visible command
+func (b *Bot) handleGetVisible(c telebot.Context) error {
+	log.Printf("Command /get_visible received")
 	// Show loading message
 	c.Send(fmt.Sprintf("Fetching vacancies from [%s](%s) →", b.deftechURL, b.deftechURL), telebot.ModeMarkdown, telebot.Silent)
 
@@ -834,16 +834,16 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
 }
 
-// handleTruncate handles the /truncate command
-func (b *Bot) handleTruncate(c telebot.Context) error {
-	log.Printf("Command /truncate received")
-	query := fmt.Sprintf("DELETE FROM %s", b.tableName())
+// handleClearSaved handles the /clear_saved command
+func (b *Bot) handleClearSaved(c telebot.Context) error {
+	log.Printf("Command /clear_saved received")
+	query := fmt.Sprintf("DELETE FROM %s WHERE is_hidden = 1", b.tableName())
 	_, err := b.db.Exec(query)
 	if err != nil {
-		log.Printf("Error truncating vacancies: %v", err)
-		return c.Send("Error truncating vacancies table", b.getCommandKeyboard(), telebot.Silent)
+		log.Printf("Error clearing hidden vacancies: %v", err)
+		return c.Send("Error clearing hidden vacancies", b.getCommandKeyboard(), telebot.Silent)
 	}
-	return c.Send("Vacancies table truncated successfully", b.getCommandKeyboard(), telebot.Silent)
+	return c.Send("Hidden vacancies cleared successfully", b.getCommandKeyboard(), telebot.Silent)
 }
 
 // RSSFeed represents the RSS feed structure
@@ -1027,8 +1027,8 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 	log.Printf("Callback received: %s", data)
 
 	switch data {
-	case "/deftech":
-		err := b.handleGetDeftech(c)
+	case "/get_visible":
+		err := b.handleGetVisible(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
 	case "/fetch_newest":

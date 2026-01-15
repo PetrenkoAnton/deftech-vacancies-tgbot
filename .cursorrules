@@ -30,14 +30,14 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 ## Bot Commands
 - `/start` - Initialize bot
 - `/help` - Show available commands
-- `/deftech` - Show visible deftech vacancies
+- `/get_visible` - Show visible deftech vacancies
 - `/fetch_newest` - Fetch newest vacancies from deftech.dou.ua
 - `/dwarf_engineering` - Fetch Dwarf Engineering vacancies
 - `/get_saved` - List all saved vacancies (excludes Dwarf Engineering)
-- `/truncate` - Clear vacancies table
+- `/clear_saved` - Clear hidden vacancies
 
 ## Key Functions
-- `handleGetDeftech` - Fetch and display deftech vacancies
+- `handleGetVisible` - Fetch and display deftech vacancies
 - `handleFetchNewest` - Scrape and save new deftech vacancies
 - `handleGetDwarfEngineering` - Fetch from multiple Dwarf sources
 - `handleGetSaved` - Display filtered saved vacancies with total count
@@ -64,5 +64,8 @@ This is a Telegram bot written in Go that fetches and manages job vacancies from
 - Database changes require migration updates
 - Test web scraping functions carefully (sites may change)
 - Maintain consistent error handling and user feedback
-- Use absolute paths when referencing files in the workspace</content>
+- Use absolute paths when referencing files in the workspace
+- Do not auto commit and push changes
+- Always write short commit message
+- Always update README and actualize .cursorrules before committing changes</content>
 <parameter name="filePath">/Users/antonpetrenko/Projects/miltech-tgbot/.cursorrules
