@@ -313,7 +313,7 @@ func (b *Bot) formatVacancyMessage(index int, vacancy Vacancy, botUsername strin
 		prefix = unignorePrefix
 	}
 	company := b.getCompanyName(vacancy)
-	return fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n",
+	return fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?process=%s_%d)\n",
 		index+1, vacancy.Title, vacancy.URL, company, action, botUsername, prefix, vacancy.ID)
 }
 
@@ -329,7 +329,7 @@ func (b *Bot) formatVacancyInfoMessage(index int, vacancyInfo VacancyInfo, id in
 	if company == "" {
 		company = "-"
 	}
-	return fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n",
+	return fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?process=%s_%d)\n",
 		index+1, vacancyInfo.Title, vacancyInfo.URL, company, action, botUsername, prefix, id)
 }
 
@@ -422,6 +422,9 @@ func (b *Bot) getAllVacancies() ([]Vacancy, error) {
 func (b *Bot) registerHandlers() {
 	// Start command handler
 	b.telebot.Handle("/start", b.handleStart)
+
+	// Process command handler (for hide/show deep links)
+	b.telebot.Handle("/process", b.handleProcess)
 
 	// Help command handler
 	b.telebot.Handle("/help", b.handleHelp)
@@ -531,7 +534,7 @@ func (b *Bot) postDeftechVacancies() error {
 		if company == "" {
 			company = "-"
 		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?process=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
 	}
 
 	_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview)
@@ -608,6 +611,69 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		startText = fmt.Sprintf("Hello! Welcome to the bot (v%s).\n\n", strings.TrimSpace(string(version))) + commandsText
 	}
 	return c.Send(startText, b.getCommandKeyboard(), telebot.Silent)
+}
+
+// handleProcess handles the /process command (for hide/show deep links)
+func (b *Bot) handleProcess(c telebot.Context) error {
+	log.Printf("Command /process received")
+
+	// Check if this is an ignore/unignore command via deep link
+	payload := strings.TrimSpace(c.Message().Payload)
+	if strings.HasPrefix(payload, "ignore_") {
+		idStr := strings.TrimPrefix(payload, "ignore_")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return c.Send("Invalid ignore ID", b.getCommandKeyboard(), telebot.Silent)
+		}
+		title, err := b.getVacancyTitleByID(id)
+		if err != nil {
+			log.Printf("Error getting title for vacancy %d: %v", id, err)
+			return c.Send("Error ignoring job", b.getCommandKeyboard(), telebot.Silent)
+		}
+		// Get vacancy URL and company for clickable link
+		var url, company string
+		err = b.db.QueryRow("SELECT v.url, COALESCE(c.name, 'Unknown') FROM vacancies v LEFT JOIN companies c ON v.company_id = c.id WHERE v.id = ?", id).Scan(&url, &company)
+		if err != nil {
+			log.Printf("Error getting URL and company for vacancy %d: %v", id, err)
+			url = "#"
+			company = "Unknown"
+		}
+		err = b.setVacancyHidden(id, true)
+		if err != nil {
+			log.Printf("Error hiding vacancy %d: %v", id, err)
+			return c.Send("Error hiding vacancy", b.getCommandKeyboard(), telebot.Silent)
+		}
+		return c.Send(fmt.Sprintf("[%s](%s) @ %s is hidden", title, url, company), b.getCommandKeyboard(), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
+	}
+	if strings.HasPrefix(payload, "unignore_") {
+		idStr := strings.TrimPrefix(payload, "unignore_")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return c.Send("Invalid unignore ID", b.getCommandKeyboard(), telebot.Silent)
+		}
+		title, err := b.getVacancyTitleByID(id)
+		if err != nil {
+			log.Printf("Error getting title for vacancy %d: %v", id, err)
+			return c.Send("Error showing job", b.getCommandKeyboard(), telebot.Silent)
+		}
+		// Get vacancy URL and company for clickable link
+		var url, company string
+		err = b.db.QueryRow("SELECT v.url, COALESCE(c.name, 'Unknown') FROM vacancies v LEFT JOIN companies c ON v.company_id = c.id WHERE v.id = ?", id).Scan(&url, &company)
+		if err != nil {
+			log.Printf("Error getting URL and company for vacancy %d: %v", id, err)
+			url = "#"
+			company = "Unknown"
+		}
+		err = b.setVacancyHidden(id, false)
+		if err != nil {
+			log.Printf("Error showing vacancy %d: %v", id, err)
+			return c.Send("Error showing job", b.getCommandKeyboard(), telebot.Silent)
+		}
+		return c.Send(fmt.Sprintf("[%s](%s) @ %s is shown", title, url, company), b.getCommandKeyboard(), telebot.ModeMarkdown, telebot.Silent)
+	}
+
+	// If no payload or unrecognized payload, just acknowledge
+	return c.Send("Process command received", b.getCommandKeyboard(), telebot.Silent)
 }
 
 // handleHelp handles the /help command
