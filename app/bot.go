@@ -137,11 +137,6 @@ func New(token string, adminID string, intervalStr string, dbName string, deftec
 	return bot, nil
 }
 
-// tableName returns the vacancies table name
-func (b *Bot) tableName() string {
-	return "vacancies"
-}
-
 // isAdmin checks if the user is authorized to use the bot
 func (b *Bot) isAdmin(userID int64) bool {
 	return fmt.Sprintf("%d", userID) == b.adminID
@@ -208,7 +203,7 @@ func (b *Bot) saveVacancy(title, url, companyName string) error {
 	if err != nil {
 		return err
 	}
-	query := fmt.Sprintf(`INSERT INTO %s (title, url, company_id, created_at, is_hidden) VALUES (?, ?, ?, ?, FALSE)`, b.tableName())
+	query := `INSERT INTO vacancies (title, url, company_id, created_at, is_hidden) VALUES (?, ?, ?, ?, FALSE)`
 	_, err = b.db.Exec(query, title, url, companyID, time.Now())
 	return err
 }
@@ -216,7 +211,7 @@ func (b *Bot) saveVacancy(title, url, companyName string) error {
 // vacancyExists checks if a vacancy with the given title already exists
 func (b *Bot) vacancyExists(title string) bool {
 	var count int
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE title = ?", b.tableName())
+	query := "SELECT COUNT(*) FROM vacancies WHERE title = ?"
 	err := b.db.QueryRow(query, title).Scan(&count)
 	return err == nil && count > 0
 }
@@ -262,11 +257,11 @@ func (b *Bot) getCompanyName(vacancy Vacancy) string {
 
 // getTotalVacancyCountExcludingDwarf gets the total count of vacancies excluding Dwarf Engineering
 func (b *Bot) getTotalVacancyCountExcludingDwarf() (int, error) {
-	query := fmt.Sprintf(`
-		SELECT COUNT(*) FROM %s v
+	query := `
+		SELECT COUNT(*) FROM vacancies v
 		LEFT JOIN companies c ON v.company_id = c.id
 		WHERE c.name != ? OR c.name IS NULL
-	`, b.tableName())
+	`
 
 	var count int
 	err := b.db.QueryRow(query, dwarfEngineeringCompany).Scan(&count)
@@ -275,10 +270,10 @@ func (b *Bot) getTotalVacancyCountExcludingDwarf() (int, error) {
 
 // getLatestVacancies gets the latest N vacancies from database
 func (b *Bot) getLatestVacancies(limit int) ([]Vacancy, error) {
-	query := fmt.Sprintf(`SELECT v.id, v.title, v.url, v.company_id, v.is_hidden, v.created_at FROM %s v
+	query := fmt.Sprintf(`SELECT v.id, v.title, v.url, v.company_id, v.is_hidden, v.created_at FROM vacancies v
 LEFT JOIN companies c ON v.company_id = c.id
 WHERE c.name != ? OR c.name IS NULL
-ORDER BY v.created_at DESC LIMIT %d`, b.tableName(), limit)
+ORDER BY v.created_at DESC LIMIT %d`, limit)
 
 	rows, err := b.db.Query(query, dwarfEngineeringCompany)
 	if err != nil {
@@ -304,7 +299,7 @@ ORDER BY v.created_at DESC LIMIT %d`, b.tableName(), limit)
 func (b *Bot) getVacancyIDAndHiddenByTitle(title string) (int, bool, error) {
 	var id int
 	var hidden bool
-	query := fmt.Sprintf("SELECT id, is_hidden FROM %s WHERE title = ?", b.tableName())
+	query := "SELECT id, is_hidden FROM vacancies WHERE title = ?"
 	err := b.db.QueryRow(query, title).Scan(&id, &hidden)
 	return id, hidden, err
 }
@@ -340,7 +335,7 @@ func (b *Bot) formatVacancyInfoMessage(index int, vacancyInfo VacancyInfo, id in
 
 // setVacancyHidden sets the hidden status of a vacancy by ID
 func (b *Bot) setVacancyHidden(id int, hidden bool) error {
-	query := fmt.Sprintf("UPDATE %s SET is_hidden = ? WHERE id = ?", b.tableName())
+	query := "UPDATE vacancies SET is_hidden = ? WHERE id = ?"
 	_, err := b.db.Exec(query, hidden, id)
 	return err
 }
@@ -348,7 +343,7 @@ func (b *Bot) setVacancyHidden(id int, hidden bool) error {
 // getVacancyTitleByID gets the vacancy title by ID
 func (b *Bot) getVacancyTitleByID(id int) (string, error) {
 	var title string
-	query := fmt.Sprintf("SELECT title FROM %s WHERE id = ?", b.tableName())
+	query := "SELECT title FROM vacancies WHERE id = ?"
 	err := b.db.QueryRow(query, id).Scan(&title)
 	return title, err
 }
@@ -376,10 +371,10 @@ func (b *Bot) sendVacancyList(c telebot.Context, vacancies []Vacancy, totalCount
 
 // getVisibleVacancies retrieves all non-hidden vacancies from the database
 func (b *Bot) getVisibleVacancies() ([]Vacancy, error) {
-	query := fmt.Sprintf(`SELECT v.id, v.title, v.url, v.company_id, v.is_hidden, v.created_at FROM %s v
+	query := `SELECT v.id, v.title, v.url, v.company_id, v.is_hidden, v.created_at FROM vacancies v
 LEFT JOIN companies c ON v.company_id = c.id
 WHERE v.is_hidden = FALSE AND (c.name != ? OR c.name IS NULL)
-ORDER BY v.created_at ASC`, b.tableName())
+ORDER BY v.created_at ASC`
 
 	rows, err := b.db.Query(query, dwarfEngineeringCompany)
 	if err != nil {
@@ -402,7 +397,7 @@ ORDER BY v.created_at ASC`, b.tableName())
 
 // getAllVacancies retrieves all vacancies from the database
 func (b *Bot) getAllVacancies() ([]Vacancy, error) {
-	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s ORDER BY created_at ASC`, b.tableName())
+	query := `SELECT id, title, url, company_id, is_hidden, created_at FROM vacancies ORDER BY created_at ASC`
 
 	rows, err := b.db.Query(query)
 	if err != nil {
@@ -565,12 +560,25 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			log.Printf("Error getting title for vacancy %d: %v", id, err)
 			return c.Send("Error ignoring job", b.getCommandKeyboard(), telebot.Silent)
 		}
+		// Get vacancy URL and company for clickable link
+		var url, company string
+		err = b.db.QueryRow("SELECT v.url, COALESCE(c.name, 'Unknown') FROM vacancies v LEFT JOIN companies c ON v.company_id = c.id WHERE v.id = ?", id).Scan(&url, &company)
+		if err != nil {
+			log.Printf("Error getting URL and company for vacancy %d: %v", id, err)
+			url = "#"
+			company = "Unknown"
+		}
 		err = b.setVacancyHidden(id, true)
 		if err != nil {
 			log.Printf("Error hiding vacancy %d: %v", id, err)
 			return c.Send("Error hiding vacancy", b.getCommandKeyboard(), telebot.Silent)
 		}
-		return c.Send(fmt.Sprintf("%s is hidden", title), b.getCommandKeyboard(), telebot.Silent)
+		// Delete the /start command message to keep chat clean
+		go func() {
+			time.Sleep(50 * time.Millisecond) // Small delay to ensure processing completes
+			c.Delete()
+		}()
+		return c.Send(fmt.Sprintf("[%s](%s) @ %s is hidden", title, url, company), b.getCommandKeyboard(), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
 	}
 	if strings.HasPrefix(payload, "unignore_") {
 		idStr := strings.TrimPrefix(payload, "unignore_")
@@ -583,12 +591,25 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			log.Printf("Error getting title for vacancy %d: %v", id, err)
 			return c.Send("Error showing job", b.getCommandKeyboard(), telebot.Silent)
 		}
+		// Get vacancy URL and company for clickable link
+		var url, company string
+		err = b.db.QueryRow("SELECT v.url, COALESCE(c.name, 'Unknown') FROM vacancies v LEFT JOIN companies c ON v.company_id = c.id WHERE v.id = ?", id).Scan(&url, &company)
+		if err != nil {
+			log.Printf("Error getting URL and company for vacancy %d: %v", id, err)
+			url = "#"
+			company = "Unknown"
+		}
 		err = b.setVacancyHidden(id, false)
 		if err != nil {
 			log.Printf("Error showing vacancy %d: %v", id, err)
 			return c.Send("Error showing job", b.getCommandKeyboard(), telebot.Silent)
 		}
-		return c.Send(fmt.Sprintf("%s is shown", title), b.getCommandKeyboard(), telebot.Silent)
+		// Delete the /start command message to keep chat clean
+		go func() {
+			time.Sleep(50 * time.Millisecond) // Small delay to ensure processing completes
+			c.Delete()
+		}()
+		return c.Send(fmt.Sprintf("[%s](%s) @ %s is shown", title, url, company), b.getCommandKeyboard(), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
 	}
 
 	startText := "Hello! Welcome to the bot.\n\n" + commandsText
@@ -885,7 +906,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		for i, title := range peopleforceTitles {
 			// Get vacancy URL from database
 			var url string
-			err := b.db.QueryRow(fmt.Sprintf("SELECT url FROM %s WHERE title = ?", b.tableName()), title).Scan(&url)
+			err := b.db.QueryRow("SELECT url FROM vacancies WHERE title = ?", title).Scan(&url)
 			if err != nil {
 				log.Printf("Error getting URL for vacancy %s: %v", title, err)
 				url = "#"
@@ -900,7 +921,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		for i, title := range douTitles {
 			// Get job URL from database
 			var url string
-			err := b.db.QueryRow(fmt.Sprintf("SELECT url FROM %s WHERE title = ?", b.tableName()), title).Scan(&url)
+			err := b.db.QueryRow("SELECT url FROM vacancies WHERE title = ?", title).Scan(&url)
 			if err != nil {
 				log.Printf("Error getting URL for vacancy %s: %v", title, err)
 				url = "#"
@@ -936,7 +957,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 // handleClearSaved handles the /clear_saved command
 func (b *Bot) handleClearSaved(c telebot.Context) error {
 	log.Printf("Command /clear_saved received")
-	query := fmt.Sprintf("DELETE FROM %s WHERE is_hidden = 1", b.tableName())
+	query := "DELETE FROM vacancies WHERE is_hidden = 1"
 	_, err := b.db.Exec(query)
 	if err != nil {
 		log.Printf("Error clearing hidden vacancies: %v", err)
