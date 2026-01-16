@@ -3,7 +3,7 @@
 [![CI](https://github.com/PetrenkoAnton/deftech-vacancies-tgbot/actions/workflows/ci.yml/badge.svg)](https://github.com/PetrenkoAnton/deftech-vacancies-tgbot/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/go-1.24-blue)](https://golang.org/)
 
-A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) and Dwarf Engineering company.
+A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) and Dwarf Engineering company. Features interactive deep links for vacancy management with automatic message cleanup.
 
 ## Features
 
@@ -16,7 +16,7 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
   - `/fetch_newest` - Fetch and post only new deftech vacancies
   - `/fetch_latest` - Fetch and display latest deftech vacancies (no saving)
   - `/dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies)
-  - `/get_saved_latest` - Get all saved vacancies with hide/show controls separated by | (excludes Dwarf Engineering)
+  - `/get_saved_latest` - Get all saved vacancies with hide/show controls (excludes Dwarf Engineering)
   - `/clear_saved` - Clear hidden vacancies from database
 
 - **Automatic Posting**:
@@ -66,7 +66,7 @@ go build -o bin/deftech-tgbot .
 
 **Note**: All commands require admin authorization. Configure `ADMIN_ID` in your `.env` file.
 
-- `/start` - Welcome message and command overview
+- `/start` - Welcome message and command overview (message auto-deletes after response)
 - `/help` - Show available commands
 - `/get_saved_visible` - Show only visible (non-hidden) DefTech jobs from database (excludes Dwarf Engineering)
 - `/fetch_newest` - Fetch and post only new DefTech jobs
@@ -89,7 +89,7 @@ All bot commands require admin authorization. The bot uses centralized middlewar
 
 ### Hide/Show Functionality
 
-Bot commands (`/get_saved_latest`) include interactive links to hide or show individual vacancies. Click the links to toggle vacancy visibility. Hidden vacancies won't appear in `/get_saved_visible` command results.
+Bot commands (`/get_saved_latest`, `/fetch_newest`, `/fetch_latest`) include interactive deep links to hide or show individual vacancies. Clicking the [hide] or [show] links will execute the action via `/start` command with appropriate payload and automatically delete the command message to keep the chat clean. Hidden vacancies won't appear in `/get_saved_visible` command results.
 
 ## Project Structure
 
