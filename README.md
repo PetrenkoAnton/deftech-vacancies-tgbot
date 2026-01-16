@@ -51,7 +51,7 @@ cp .env.example .env
 # Required: INTERVAL - Posting interval in minutes
 # Required: DEFTECH_URL - DefTech vacancies URL (default: https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2)
 # Optional: DB_NAME - Database file path (default: ./deftech-tgbot.db)
-# Required: LIMIT - Maximum vacancies to display in saved lists (1-200)
+# Required: LIMIT - Maximum vacancies to display in saved lists (20-200)
 ```
 
 ## Usage

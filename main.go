@@ -57,8 +57,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid LIMIT value: %v", err)
 	}
-	if limit <= 0 || limit > 200 {
-		log.Fatalf("LIMIT must be greater than 0 and less or equal than 200, got: %d", limit)
+	if limit < 20 || limit > 200 {
+		log.Fatalf("LIMIT must be between 20 and 200, got: %d", limit)
 	}
 
 	// Initialize bot
