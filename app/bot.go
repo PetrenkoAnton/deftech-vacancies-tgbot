@@ -262,17 +262,6 @@ func (b *Bot) getCompanyName(vacancy Vacancy) string {
 	return "Unknown"
 }
 
-// filterNonDwarfEngineeringVacancies filters out Dwarf Engineering vacancies
-func (b *Bot) filterNonDwarfEngineeringVacancies(vacancies []Vacancy) []Vacancy {
-	var filtered []Vacancy
-	for _, vacancy := range vacancies {
-		if b.getCompanyName(vacancy) != dwarfEngineeringCompany {
-			filtered = append(filtered, vacancy)
-		}
-	}
-	return filtered
-}
-
 // getTotalVacancyCountExcludingDwarf gets the total count of vacancies excluding Dwarf Engineering
 func (b *Bot) getTotalVacancyCountExcludingDwarf() (int, error) {
 	query := fmt.Sprintf(`
@@ -288,9 +277,12 @@ func (b *Bot) getTotalVacancyCountExcludingDwarf() (int, error) {
 
 // getLatestVacancies gets the latest N vacancies from database
 func (b *Bot) getLatestVacancies(limit int) ([]Vacancy, error) {
-	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s ORDER BY created_at DESC LIMIT %d`, b.tableName(), limit)
+	query := fmt.Sprintf(`SELECT v.id, v.title, v.url, v.company_id, v.is_hidden, v.created_at FROM %s v
+LEFT JOIN companies c ON v.company_id = c.id
+WHERE c.name != ? OR c.name IS NULL
+ORDER BY v.created_at DESC LIMIT %d`, b.tableName(), limit)
 
-	rows, err := b.db.Query(query)
+	rows, err := b.db.Query(query, dwarfEngineeringCompany)
 	if err != nil {
 		return nil, err
 	}
@@ -386,9 +378,12 @@ func (b *Bot) sendVacancyList(c telebot.Context, vacancies []Vacancy, totalCount
 
 // getVisibleVacancies retrieves all non-hidden vacancies from the database
 func (b *Bot) getVisibleVacancies() ([]Vacancy, error) {
-	query := fmt.Sprintf(`SELECT id, title, url, company_id, is_hidden, created_at FROM %s WHERE is_hidden = FALSE ORDER BY created_at ASC`, b.tableName())
+	query := fmt.Sprintf(`SELECT v.id, v.title, v.url, v.company_id, v.is_hidden, v.created_at FROM %s v
+LEFT JOIN companies c ON v.company_id = c.id
+WHERE v.is_hidden = FALSE AND (c.name != ? OR c.name IS NULL)
+ORDER BY v.created_at ASC`, b.tableName())
 
-	rows, err := b.db.Query(query)
+	rows, err := b.db.Query(query, dwarfEngineeringCompany)
 	if err != nil {
 		return nil, err
 	}
@@ -809,16 +804,14 @@ func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
 		return c.Send("Error getting visible vacancies", b.getCommandKeyboard(), telebot.Silent)
 	}
 
-	filteredVacancies := b.filterNonDwarfEngineeringVacancies(vacancies)
-
-	if len(filteredVacancies) == 0 {
+	if len(vacancies) == 0 {
 		return c.Send("No visible vacancies found.", b.getCommandKeyboard(), telebot.Silent)
 	}
 
 	// Format and send the list
 	var message strings.Builder
 
-	for i, vacancy := range filteredVacancies {
+	for i, vacancy := range vacancies {
 		message.WriteString(b.formatVacancyMessage(i, vacancy, c.Bot().Me.Username))
 	}
 
@@ -843,9 +836,7 @@ func (b *Bot) handleGetSavedLatest(c telebot.Context) error {
 		return c.Send("Error getting saved vacancies", b.getCommandKeyboard(), telebot.Silent)
 	}
 
-	filteredVacancies := b.filterNonDwarfEngineeringVacancies(vacancies)
-
-	return b.sendVacancyList(c, filteredVacancies, totalCount, b.limit)
+	return b.sendVacancyList(c, vacancies, totalCount, b.limit)
 }
 
 // handleGetDwarfEngineering handles the /dwarf_engineering command
