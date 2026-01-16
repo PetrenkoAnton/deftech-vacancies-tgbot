@@ -15,8 +15,8 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
   - `/get_saved_visible` - Get visible deftech vacancies only (from database, excludes Dwarf Engineering)
   - `/fetch_newest` - Fetch and post only new deftech vacancies
   - `/fetch_latest` - Fetch and display latest deftech vacancies (no saving)
-  - `/dwarf_engineering` - Get Dwarf Engineering vacancies
-  - `/get_saved_latest` - Get all saved vacancies with hide/show controls (excludes Dwarf Engineering)
+  - `/dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies)
+  - `/get_saved_latest` - Get all saved vacancies with hide/show controls separated by | (excludes Dwarf Engineering)
   - `/clear_saved` - Clear hidden vacancies from database
 
 - **Automatic Posting**:

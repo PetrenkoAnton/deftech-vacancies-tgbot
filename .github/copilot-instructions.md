@@ -22,7 +22,7 @@ Go-based Telegram bot with SQLite persistence that scrapes job vacancies from de
 ## Project Conventions
 - **Admin Auth**: Global middleware checks `ADMIN_ID` env var; logs unauthorized attempts with user details
 - **Vacancy Storage**: Checks existence by title before saving; uses company foreign keys
-- **Message Formatting**: Markdown links for vacancies; inline keyboards for commands
+- **Message Formatting**: Markdown links for vacancies; inline keyboards for commands; hide/show buttons separated by |
 - **Error Handling**: Logs errors but continues operation; user-facing messages use `telebot.Silent`
 - **Configuration**: All settings via environment variables; `.env` loaded with `godotenv`
 
@@ -30,7 +30,7 @@ Go-based Telegram bot with SQLite persistence that scrapes job vacancies from de
 - **Telegram API**: `telebot.v3` framework with long poller; handlers registered in `registerHandlers()`
 - **Database**: SQLite with prepared statements; indexes on `created_at` and `company_id`
 - **Web Scraping**: HTTP client with 10s timeout; parses HTML for job links and company associations
-- **External Sources**: Multiple Dwarf Engineering endpoints combined into single response (PeopleForce HTML, DOU.ua RSS, djinni.co HTML)
+- **External Sources**: Multiple Dwarf Engineering endpoints combined into single response (PeopleForce HTML, DOU.ua RSS, djinni.co HTML with views/applies metadata in "title | views / applies" format)
 
 ## Development Notes
 - **Testing Scraping**: Sites change frequently; test `FetchJobTitlesFromDeftech()` after modifications
