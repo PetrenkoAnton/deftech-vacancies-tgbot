@@ -72,18 +72,17 @@ type DjinniVacancyInfo struct {
 
 // Bot represents the Telegram bot instance
 type Bot struct {
-	telebot        *telebot.Bot
-	db             *sql.DB
-	httpClient     *http.Client
-	adminID        string
-	dbName         string
-	vacanciesTable string
-	deftechURL     string
-	limit          int
+	telebot    *telebot.Bot
+	db         *sql.DB
+	httpClient *http.Client
+	adminID    string
+	dbName     string
+	deftechURL string
+	limit      int
 }
 
 // New creates a new bot instance
-func New(token string, adminID string, intervalStr string, dbName string, vacanciesTable string, deftechURL string, limit int) (*Bot, error) {
+func New(token string, adminID string, intervalStr string, dbName string, deftechURL string, limit int) (*Bot, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -111,14 +110,13 @@ func New(token string, adminID string, intervalStr string, dbName string, vacanc
 	}
 
 	bot := &Bot{
-		telebot:        b,
-		db:             db,
-		httpClient:     httpClient,
-		adminID:        adminID,
-		dbName:         dbName,
-		vacanciesTable: vacanciesTable,
-		deftechURL:     deftechURL,
-		limit:          limit,
+		telebot:    b,
+		db:         db,
+		httpClient: httpClient,
+		adminID:    adminID,
+		dbName:     dbName,
+		deftechURL: deftechURL,
+		limit:      limit,
 	}
 
 	// Apply admin middleware globally
@@ -141,7 +139,7 @@ func New(token string, adminID string, intervalStr string, dbName string, vacanc
 
 // tableName returns the vacancies table name
 func (b *Bot) tableName() string {
-	return b.vacanciesTable
+	return "vacancies"
 }
 
 // isAdmin checks if the user is authorized to use the bot
@@ -538,7 +536,7 @@ func (b *Bot) postDeftechVacancies() error {
 		if company == "" {
 			company = "-"
 		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
 	}
 
 	_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview)

@@ -3,6 +3,7 @@
 ## AI Assistant Guidelines
 - **DONT AUTO COMMIT** - Always wait for explicit user instruction before committing changes
 - **WRITE SHORT COMMIT MESSAGE** - Keep commit messages concise and relevant when asked to commit and push
+- **IGNORE SENSITIVE DATA IN .env FILE** - Never view, modify, or reference sensitive data like BOT_TOKEN, ADMIN_ID, or other credentials in the .env file
 
 ## Architecture Overview
 Go-based Telegram bot with SQLite persistence that scrapes job vacancies from deftech.dou.ua and Dwarf Engineering sources (PeopleForce, DOU.ua RSS, and djinni.co). Single `Bot` struct in `app/bot.go` manages all operations: HTTP scraping, database interactions, and Telegram messaging.
