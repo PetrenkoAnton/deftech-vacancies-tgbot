@@ -9,7 +9,7 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
 
 - **Job Sources**:
   - [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs)
-  - Dwarf Engineering ([dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers) and [jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies))
+  - Dwarf Engineering ([dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers), [jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies), and [djinni.co/jobs/company-dwarf-engineering](https://djinni.co/jobs/company-dwarf-engineering/))
 
 - **Commands**:
   - `/get_saved_visible` - Get visible deftech vacancies only (from database, excludes Dwarf Engineering)

@@ -846,7 +846,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	// Show loading message
 	c.Send("Fetching Dwarf Engineering vacancies →", telebot.Silent)
 
-	var peopleforceTitles, douTitles []string
+	var peopleforceTitles, douTitles, djinniTitles []string
 
 	// Fetch from PeopleForce
 	peopleforceTitlesRaw, err := b.fetchJobTitles()
@@ -866,8 +866,17 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		douTitles = douTitlesRaw
 	}
 
-	if len(peopleforceTitles) == 0 && len(douTitles) == 0 {
-		return c.Send("No vacancies found from either source.", b.getCommandKeyboard(), telebot.Silent)
+	// Fetch from djinni.co
+	djinniTitlesRaw, err := b.fetchJobTitlesFromDjinni()
+	if err != nil {
+		log.Printf("Error fetching vacancies from djinni.co: %v", err)
+		// Continue even if one source fails
+	} else {
+		djinniTitles = djinniTitlesRaw
+	}
+
+	if len(peopleforceTitles) == 0 && len(douTitles) == 0 && len(djinniTitles) == 0 {
+		return c.Send("No vacancies found from any source.", b.getCommandKeyboard(), telebot.Silent)
 	}
 
 	// Format and send the list
@@ -891,6 +900,21 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 	if len(douTitles) > 0 {
 		message.WriteString("**[jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies/):**\n")
 		for i, title := range douTitles {
+			// Get job URL from database
+			var url string
+			err := b.db.QueryRow(fmt.Sprintf("SELECT url FROM %s WHERE title = ?", b.tableName()), title).Scan(&url)
+			if err != nil {
+				log.Printf("Error getting URL for vacancy %s: %v", title, err)
+				url = "#"
+			}
+			message.WriteString(fmt.Sprintf("%d. [%s](%s)\n", i+1, title, url))
+		}
+		message.WriteString("\n")
+	}
+
+	if len(djinniTitles) > 0 {
+		message.WriteString("**[djinni.co/jobs/company-dwarf-engineering](https://djinni.co/jobs/company-dwarf-engineering/):**\n")
+		for i, title := range djinniTitles {
 			// Get job URL from database
 			var url string
 			err := b.db.QueryRow(fmt.Sprintf("SELECT url FROM %s WHERE title = ?", b.tableName()), title).Scan(&url)
@@ -980,6 +1004,76 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 	}
 
 	return vacancyTitles, nil
+}
+
+// fetchJobTitlesFromDjinni fetches and parses job titles from djinni.co Dwarf Engineering page
+func (b *Bot) fetchJobTitlesFromDjinni() ([]string, error) {
+	url := "https://djinni.co/jobs/company-dwarf-engineering/"
+
+	resp, err := b.httpClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch djinni page: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	doc, err := html.Parse(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse HTML: %w", err)
+	}
+
+	vacancyTitles := b.findJobTitlesFromDjinni(doc)
+	return vacancyTitles, nil
+}
+
+// findJobTitlesFromDjinni finds job titles in the djinni.co HTML document
+func (b *Bot) findJobTitlesFromDjinni(n *html.Node) []string {
+	var vacancyTitles []string
+	var seen = make(map[string]bool)
+
+	var findTitles func(*html.Node)
+	findTitles = func(node *html.Node) {
+		if node.Type == html.ElementNode && node.Data == "h2" {
+			for _, attr := range node.Attr {
+				if attr.Key == "class" && strings.Contains(attr.Val, "fs-3") {
+					// Found a job title header
+					for c := node.FirstChild; c != nil; c = c.NextSibling {
+						if c.Type == html.ElementNode && c.Data == "a" {
+							title := strings.TrimSpace(b.extractText(c))
+							var url string
+							for _, a := range c.Attr {
+								if a.Key == "href" {
+									url = a.Val
+									if !strings.HasPrefix(url, "http") {
+										url = "https://djinni.co" + url
+									}
+									break
+								}
+							}
+							if title != "" && url != "" && !seen[title] {
+								seen[title] = true
+								vacancyTitles = append(vacancyTitles, title)
+								// Save to database
+								if err := b.saveVacancy(title, url, "Dwarf Engineering"); err != nil {
+									log.Printf("Error saving vacancy to DB: %v", err)
+								}
+							}
+							break
+						}
+					}
+				}
+			}
+		}
+		for c := node.FirstChild; c != nil; c = c.NextSibling {
+			findTitles(c)
+		}
+	}
+
+	findTitles(n)
+	return vacancyTitles
 }
 
 // FetchJobTitlesFromDeftech fetches and parses job titles from deftech.dou.ua page
