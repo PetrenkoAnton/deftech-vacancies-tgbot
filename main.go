@@ -48,12 +48,6 @@ func main() {
 		dbName = "./deftech-tgbot.db"
 	}
 
-	// Get vacancies table name from environment variable (optional, default to vacancies)
-	vacanciesTable := os.Getenv("VACANCIES_TABLE")
-	if vacanciesTable == "" {
-		vacanciesTable = "vacancies"
-	}
-
 	// Get limit from environment variable (required)
 	limitStr := os.Getenv("LIMIT")
 	if limitStr == "" {
@@ -69,7 +63,7 @@ func main() {
 
 	// Initialize bot
 	log.Println("Initializing Telegram bot →")
-	telegramBot, err := bot.New(botToken, adminID, intervalStr, dbName, vacanciesTable, deftechURL, limit)
+	telegramBot, err := bot.New(botToken, adminID, intervalStr, dbName, deftechURL, limit)
 	if err != nil {
 		log.Fatalf("Failed to initialize bot: %v", err)
 	}
