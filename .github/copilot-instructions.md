@@ -37,5 +37,4 @@ Go-based Telegram bot with SQLite persistence that scrapes job vacancies from de
 - **Database Changes**: Add new migration files; schema uses CASCADE DELETE for companies
 - **Command Updates**: Modify both handler registration and help text constants
 - **Bot Commands**: When modifying bot commands, update both handler registration and callback cases
-- **Version Tracking**: Update `VERSION` file for releases; referenced in build scripts</content>
-<parameter name="filePath">/Users/antonpetrenko/Projects/miltech-tgbot/.github/copilot-instructions.md
+- **Version Tracking**: Update `VERSION` file for releases; referenced in build scripts
