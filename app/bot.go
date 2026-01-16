@@ -560,12 +560,19 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			log.Printf("Error getting title for vacancy %d: %v", id, err)
 			return c.Send("Error ignoring job", b.getCommandKeyboard(), telebot.Silent)
 		}
+		// Get vacancy URL for clickable link
+		var url string
+		err = b.db.QueryRow("SELECT url FROM vacancies WHERE id = ?", id).Scan(&url)
+		if err != nil {
+			log.Printf("Error getting URL for vacancy %d: %v", id, err)
+			url = "#"
+		}
 		err = b.setVacancyHidden(id, true)
 		if err != nil {
 			log.Printf("Error hiding vacancy %d: %v", id, err)
 			return c.Send("Error hiding vacancy", b.getCommandKeyboard(), telebot.Silent)
 		}
-		return c.Send(fmt.Sprintf("%s is hidden", title), b.getCommandKeyboard(), telebot.Silent)
+		return c.Send(fmt.Sprintf("[%s](%s) is hidden", title, url), b.getCommandKeyboard(), telebot.ModeMarkdown, telebot.Silent)
 	}
 	if strings.HasPrefix(payload, "unignore_") {
 		idStr := strings.TrimPrefix(payload, "unignore_")
@@ -578,12 +585,19 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			log.Printf("Error getting title for vacancy %d: %v", id, err)
 			return c.Send("Error showing job", b.getCommandKeyboard(), telebot.Silent)
 		}
+		// Get vacancy URL for clickable link
+		var url string
+		err = b.db.QueryRow("SELECT url FROM vacancies WHERE id = ?", id).Scan(&url)
+		if err != nil {
+			log.Printf("Error getting URL for vacancy %d: %v", id, err)
+			url = "#"
+		}
 		err = b.setVacancyHidden(id, false)
 		if err != nil {
 			log.Printf("Error showing vacancy %d: %v", id, err)
 			return c.Send("Error showing job", b.getCommandKeyboard(), telebot.Silent)
 		}
-		return c.Send(fmt.Sprintf("%s is shown", title), b.getCommandKeyboard(), telebot.Silent)
+		return c.Send(fmt.Sprintf("[%s](%s) is shown", title, url), b.getCommandKeyboard(), telebot.ModeMarkdown, telebot.Silent)
 	}
 
 	startText := "Hello! Welcome to the bot.\n\n" + commandsText
