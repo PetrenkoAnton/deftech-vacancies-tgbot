@@ -536,7 +536,7 @@ func (b *Bot) postDeftechVacancies() error {
 		if company == "" {
 			company = "-"
 		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
 	}
 
 	_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview)
