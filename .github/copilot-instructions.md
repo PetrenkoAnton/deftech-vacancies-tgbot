@@ -3,6 +3,7 @@
 ## AI Assistant Guidelines
 - **DONT AUTO COMMIT** - Always wait for explicit user instruction before committing changes
 - **WRITE SHORT COMMIT MESSAGE** - Keep commit messages concise and relevant when asked to commit and push
+- **CP SHORTCUT** - "CP" is recognized as shortcut for "Commit and push current changes"
 - **IGNORE SENSITIVE DATA IN .env FILE** - Never view, modify, or reference sensitive data like BOT_TOKEN, ADMIN_ID, or other credentials in the .env file
 
 ## Architecture Overview

@@ -575,7 +575,7 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		}
 		// Delete the /start command message to keep chat clean
 		go func() {
-			time.Sleep(100 * time.Millisecond) // Small delay to ensure processing completes
+			time.Sleep(50 * time.Millisecond) // Small delay to ensure processing completes
 			c.Delete()
 		}()
 		return c.Send(fmt.Sprintf("[%s](%s) @ %s is hidden", title, url, company), b.getCommandKeyboard(), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
@@ -606,10 +606,10 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		}
 		// Delete the /start command message to keep chat clean
 		go func() {
-			time.Sleep(100 * time.Millisecond) // Small delay to ensure processing completes
+			time.Sleep(50 * time.Millisecond) // Small delay to ensure processing completes
 			c.Delete()
 		}()
-		return c.Send(fmt.Sprintf("[%s](%s) @ %s is shown", title, url, company), b.getCommandKeyboard(), telebot.ModeMarkdown, telebot.Silent)
+		return c.Send(fmt.Sprintf("[%s](%s) @ %s is shown", title, url, company), b.getCommandKeyboard(), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
 	}
 
 	startText := "Hello! Welcome to the bot.\n\n" + commandsText
