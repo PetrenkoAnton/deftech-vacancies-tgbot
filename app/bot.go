@@ -86,6 +86,7 @@ func New(token string, adminID string, intervalStr string, dbName string, deftec
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
+		Client: &http.Client{Timeout: 60 * time.Second},
 	}
 
 	b, err := telebot.NewBot(pref)
@@ -534,9 +535,20 @@ func (b *Bot) postDeftechVacancies() error {
 		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
 	}
 
-	_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview)
+	// Send with retry logic
+	maxRetries := 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview)
+		if err == nil {
+			break
+		}
+		log.Printf("Attempt %d failed to send new vacancies: %v", attempt, err)
+		if attempt < maxRetries {
+			time.Sleep(time.Duration(attempt) * 5 * time.Second) // Exponential backoff: 5s, 10s, 15s
+		}
+	}
 	if err != nil {
-		return fmt.Errorf("error sending new vacancies: %w", err)
+		return fmt.Errorf("error sending new vacancies after %d attempts: %w", maxRetries, err)
 	}
 
 	log.Printf("Posted %d new vacancies", len(newVacancyInfos))
