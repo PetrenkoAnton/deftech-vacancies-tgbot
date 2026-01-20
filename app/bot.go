@@ -1137,24 +1137,20 @@ func (b *Bot) extractDjinniVacancyInfo(node *html.Node) DjinniVacancyInfo {
 				for _, attr := range n.Attr {
 					if attr.Key == "class" && strings.Contains(attr.Val, "text-secondary") {
 						text := strings.TrimSpace(b.extractText(n))
-						// Look for patterns like "46 переглядів" (views) and "X відгуків" (applies/responses)
-						if strings.Contains(text, "переглядів") {
-							// Extract number before "переглядів"
-							parts := strings.Fields(text)
-							for i, part := range parts {
-								if part == "переглядів" && i > 0 {
-									vacancy.Views = parts[i-1]
-									break
+						// Split by · to get individual metadata parts
+						parts := strings.Split(text, "·")
+						for _, part := range parts {
+							part = strings.TrimSpace(part)
+							if strings.Contains(part, "переглядів") || strings.Contains(part, "перегляд") {
+								// Extract number before "переглядів" or "перегляд"
+								if idx := strings.Index(part, "перегляд"); idx > 0 {
+									vacancy.Views = strings.TrimSpace(part[:idx])
 								}
 							}
-						}
-						if strings.Contains(text, "відгуків") || strings.Contains(text, "відгук") {
-							// Extract number before "відгуків" or "відгук"
-							parts := strings.Fields(text)
-							for i, part := range parts {
-								if (part == "відгуків" || part == "відгук") && i > 0 {
-									vacancy.Applies = parts[i-1]
-									break
+							if strings.Contains(part, "відгуків") || strings.Contains(part, "відгук") {
+								// Extract number before "відгуків" or "відгук"
+								if idx := strings.Index(part, "відгук"); idx > 0 {
+									vacancy.Applies = strings.TrimSpace(part[:idx])
 								}
 							}
 						}
