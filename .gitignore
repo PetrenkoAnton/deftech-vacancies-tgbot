@@ -8,6 +8,9 @@
 # Test binary, built with `go test -c`
 *.test
 
+# Dev folder
+_dev/
+
 # Output of the go coverage tool
 *.out
 
