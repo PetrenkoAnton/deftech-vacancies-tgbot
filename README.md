@@ -94,12 +94,17 @@ For production deployment, create a `.prod.env` file by copying `.env` and updat
    ./_rpi_scripts/setup_rpi.sh
    ```
 
-4. **Stop the bot**:
+4. **Start the bot** (initial start, or restart later):
+   ```bash
+   ./_rpi_scripts/start_bot_on_rpi.sh
+   ```
+
+5. **Stop the bot**:
    ```bash
    ./_rpi_scripts/stop_bot_on_rpi.sh
    ```
 
-5. **View logs** (live updates):
+6. **View logs** (live updates):
    ```bash
    ./_rpi_scripts/view_logs_rpi.sh
    ```
@@ -181,6 +186,7 @@ deftech-vacancies-tgbot/
 │   ├── setup_rpi.sh
 │   ├── start_bot_on_rpi.sh
 │   ├── stop_bot_on_rpi.sh
+│   ├── update_rpi.sh
 │   └── view_logs_rpi.sh
 ├── build_and_run.sh      # Build and run script
 ├── .env                  # Dev environment configuration
