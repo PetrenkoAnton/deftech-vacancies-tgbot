@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cd "$(dirname "$0")"
-source ../.env
+source ../.prod.env
 
 # Script to stop previous bot and start the current one on Raspberry Pi
 
@@ -14,6 +14,6 @@ ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST" << EOF
   cd $PI_ROOT_PATH
   nohup ./$PI_BINARY >> ./$PI_LOG_FILE 2>&1 &
 EOF
-
+ 
 # Print success message
 echo "Bot started."

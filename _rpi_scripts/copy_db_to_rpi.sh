@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cd "$(dirname "$0")"
-source ../.env
+source ../.prod.env
 
 # Script to copy database to Raspberry Pi
 

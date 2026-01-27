@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cd "$(dirname "$0")"
-source ../.env
+source ../.prod.env
 
 # Build script for Raspberry Pi ARM64
 

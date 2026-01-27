@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cd "$(dirname "$0")"
-source ../.env
+source ../.prod.env
 
 # Script to set up Raspberry Pi for the bot: logrotate and systemd service
 
