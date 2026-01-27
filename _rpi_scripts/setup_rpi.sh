@@ -25,17 +25,19 @@ After=network.target
 Type=simple
 User=$PI_USER
 WorkingDirectory=$PI_ROOT_PATH
+ExecStartPre=/bin/sleep 10
 ExecStart=$PI_ROOT_PATH/$PI_BINARY
+StandardOutput=append:$PI_ROOT_PATH/$PI_LOG_FILE
+StandardError=append:$PI_ROOT_PATH/$PI_LOG_FILE
 Restart=always
 RestartSec=5
-EnvironmentFile=$PI_ROOT_PATH/.env
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
 scp -i "$PI_KEY" /tmp/deftech-tgbot.service "$PI_USER@$PI_HOST":/tmp/
-ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST" "sudo mv /tmp/deftech-tgbot.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable deftech-tgbot"
+ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST" "sudo mv /tmp/deftech-tgbot.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable deftech-tgbot && chmod +x $PI_ROOT_PATH/$PI_BINARY"
 echo "Systemd service installed and enabled."
 
 # Print success message

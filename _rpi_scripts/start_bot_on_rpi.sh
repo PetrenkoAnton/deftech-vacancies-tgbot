@@ -9,11 +9,7 @@ source ../.prod.env
 echo "Stopping previous bot and starting new one..."
 
 # Execute commands on Raspberry Pi via SSH
-ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST" << EOF
-  pkill -f $PI_BINARY || true
-  cd $PI_ROOT_PATH
-  nohup ./$PI_BINARY >> ./$PI_LOG_FILE 2>&1 &
-EOF
+ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST" "sudo systemctl restart deftech-tgbot"
  
 # Print success message
 echo "Bot started."
