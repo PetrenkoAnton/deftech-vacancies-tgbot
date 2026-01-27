@@ -72,7 +72,7 @@ PI_HOST=                          # e.g., "192.168.1.100"
 PI_USER=                          # e.g., "pi"
 PI_KEY=                           # e.g., "$HOME/.ssh/id_rsa"
 PI_ROOT_PATH=                     # e.g., "/home/pi/deftech-tgbot"
-PI_LOG_FILE="deftech-tgbot.log"
+LOG_PATH=                         # e.g., "/home/pi/deftech-tgbot/deftech-tgbot.log"
 PI_BINARY=                        # e.g., "deftech-tg-bot-rpi"
 ```
 
@@ -82,7 +82,7 @@ PI_BINARY=                        # e.g., "deftech-tg-bot-rpi"
    ./_rpi_scripts/build_for_rpi.sh
    ```
 
-2. **Copy binary to Raspberry Pi**:
+2. **Copy binary and environment file to Raspberry Pi**:
    ```bash
    ./_rpi_scripts/copy_bin_to_rpi.sh
    ```

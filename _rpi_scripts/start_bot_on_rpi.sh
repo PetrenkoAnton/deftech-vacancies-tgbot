@@ -1,5 +1,6 @@
 #!/bin/bash
 
+cd "$(dirname "$0")"
 source ../.env
 
 # Script to stop previous bot and start the current one on Raspberry Pi

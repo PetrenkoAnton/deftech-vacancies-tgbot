@@ -2,7 +2,7 @@
 
 # Build the Go project
 echo "Building the project →"
-go build -o ./bin/deftech-tgbot .
+go build -o ./_bin/deftech-tgbot .
 
 # Check if build was successful
 if [ $? -eq 0 ]; then

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+cd "$(dirname "$0")"
 source ../.env
 
 # Script to view logs from Raspberry Pi

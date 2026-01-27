@@ -1,5 +1,6 @@
 #!/bin/bash
 
+cd "$(dirname "$0")"
 source ../.env
 
 # Script to copy binary to Raspberry Pi
@@ -8,7 +9,10 @@ source ../.env
 echo "Copying binary to Raspberry Pi..."
 
 # Copy the binary to Raspberry Pi using SCP
-scp -i "$PI_KEY" _bin/$PI_BINARY "$PI_USER@$PI_HOST:$PI_ROOT_PATH/"
+scp -i "$PI_KEY" ../bin/$PI_BINARY "$PI_USER@$PI_HOST:$PI_ROOT_PATH/"
 
-# Print success message
-echo "File copied successfully."
+# Print status message
+echo "Copying environment file to Raspberry Pi..."
+
+# Copy the .env file to Raspberry Pi using SCP
+scp -i "$PI_KEY" ../.env "$PI_USER@$PI_HOST:$PI_ROOT_PATH/.env"
