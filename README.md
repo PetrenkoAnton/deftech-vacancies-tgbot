@@ -52,7 +52,7 @@ BOT_TOKEN=  # From @BotFather
 ADMIN_ID=   # Your Telegram user ID (get from @userinfobot)
 INTERVAL=1  # Posting interval in minutes
 DEFTECH_URL="https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2" # Deftech vacancies URL
-DB_NAME="./deftech-tgbot.db"
+DB_NAME="deftech-tgbot.db"
 LIMIT=50    # Max vacancies to display in saved lists (20-200)
 ```
 
@@ -72,8 +72,8 @@ PI_HOST=       # e.g., "192.168.1.100"
 PI_USER=       # e.g., "pi"
 PI_KEY=        # e.g., "$HOME/.ssh/id_rsa"
 PI_ROOT_PATH=  # e.g., "/home/pi/deftech-tgbot"
-LOG_PATH=      # e.g., "/home/pi/deftech-tgbot/deftech-tgbot.log"
-PI_BINARY=     # e.g., "deftech-tg-bot-rpi"
+PI_LOG_FILE=   # e.g., "deftech-tgbot.log"
+PI_BINARY=     # e.g., "deftech-tgbot-rpi"
 ```
 
 For production deployment, create a `.prod.env` file by copying `.env` and updating it with production values (e.g., production BOT_TOKEN, ADMIN_ID, etc.). The deployment scripts will use `.prod.env` if available, otherwise `.env`.
@@ -110,7 +110,7 @@ For production deployment, create a `.prod.env` file by copying `.env` and updat
    ./_rpi_scripts/copy_db_to_rpi.sh
   ```
 
-- **Copy database from Pi to local**:
+- **Copy database from Pi to local** (with timestamp prefix):
   ```bash
    ./_rpi_scripts/copy_db_from_rpi.sh
   ```
@@ -190,5 +190,5 @@ deftech-vacancies-tgbot/
 ├── go.mod                # Go module dependencies
 ├── go.sum                # Go module checksums
 ├── deftech-tgbot.db      # SQLite database (auto-created, configurable via DB_NAME)
-└── _bin/                  # Compiled binaries
+└── _bin/                 # Compiled binaries
 ```

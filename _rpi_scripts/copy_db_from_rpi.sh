@@ -9,7 +9,7 @@ source ../.env
 echo "Copying database from Raspberry Pi..."
 
 # Copy the database file from Raspberry Pi using SCP
-scp -i "$PI_KEY" "$PI_USER@$PI_HOST:$PI_ROOT_PATH/$DB_NAME" "../$DB_NAME"
+scp -i "$PI_KEY" "$PI_USER@$PI_HOST:$PI_ROOT_PATH/$DB_NAME" "../_dev/$(date +%Y%m%d_%H%M%S)_$DB_NAME"
 
 # Print success message
 echo "Database copied successfully."
