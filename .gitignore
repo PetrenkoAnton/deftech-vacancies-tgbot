@@ -59,6 +59,6 @@ secrets.json
 *.key
 
 # Build artifacts
-/bin/
+/_bin/
 /dist/
 /build/

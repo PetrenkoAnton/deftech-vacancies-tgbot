@@ -42,10 +42,10 @@ func main() {
 		log.Fatal("DEFTECH_URL environment variable is not set")
 	}
 
-	// Get database name from environment variable (optional, default to ./deftech-tgbot.db)
+	// Get database name from environment variable (required)
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
-		dbName = "./deftech-tgbot.db"
+		log.Fatal("DB_NAME environment variable is not set")
 	}
 
 	// Get limit from environment variable (required)

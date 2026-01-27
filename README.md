@@ -46,21 +46,93 @@ go mod download
 2. Configure `.env`:
 ```bash
 cp .env.example .env
-# Required: BOT_TOKEN from @BotFather
-# Required: ADMIN_ID - Your Telegram user ID (get from @userinfobot)
-# Required: INTERVAL - Posting interval in minutes
-# Required: DEFTECH_URL - DefTech vacancies URL (default: https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2)
-# Optional: DB_NAME - Database file path (default: ./deftech-tgbot.db)
-# Required: LIMIT - Maximum vacancies to display in saved lists (20-200)
 ```
+```bash
+BOT_TOKEN= # from @BotFather
+ADMIN_ID= #Your Telegram user ID (get from @userinfobot)
+INTERVAL=1 #Posting interval in minutes
+DEFTECH_URL=https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2 #Deftech vacancies URL
+DB_NAME="./deftech-tgbot.db"
+LIMIT=50 #max vacancies to display in saved lists (20-200)
+```
+
+## Raspberry Pi Deployment
+
+For deploying the bot on a Raspberry Pi (ARM64), follow these steps:
+
+### Prerequisites
+- Raspberry Pi with SSH access
+- SSH key pair configured for passwordless login
+- Go installed on the local machine for cross-compilation
+
+### Configuration
+Update the Raspberry Pi connection details in `.env`:
+```bash
+PI_HOST=                          # e.g., "192.168.1.100"
+PI_USER=                          # e.g., "pi"
+PI_KEY=                           # e.g., "$HOME/.ssh/id_rsa"
+PI_ROOT_PATH=                     # e.g., "/home/pi/deftech-tgbot"
+PI_LOG_FILE="deftech-tgbot.log"
+PI_BINARY=                        # e.g., "deftech-tg-bot-rpi"
+```
+
+### Deployment Steps
+1. **Build for ARM64**:
+   ```bash
+   ./_rpi_scripts/build_for_rpi.sh
+   ```
+
+2. **Copy binary to Raspberry Pi**:
+   ```bash
+   ./_rpi_scripts/copy_bin_to_rpi.sh
+   ```
+
+3. **Start the bot on Raspberry Pi**:
+   ```bash
+   ./_rpi_scripts/start_bot_on_rpi.sh
+   ```
+
+4. **Stop the bot**:
+   ```bash
+   ./_rpi_scripts/stop_bot_on_rpi.sh
+   ```
+
+5. **View logs**:
+   ```bash
+   ./_rpi_scripts/view_logs_rpi.sh
+   ```
+
+### Database Management
+- **Copy database to Pi**:
+  ```bash
+   ./_rpi_scripts/copy_db_to_rpi.sh
+  ```
+
+- **Copy database from Pi to local**:
+  ```bash
+   ./_rpi_scripts/copy_db_from_rpi.sh
+  ```
+
+### Notes
+- All scripts source the `.env` file for configuration.
+- Ensure SSH key authentication is set up between your local machine and the Raspberry Pi.
+- The bot runs in the background on the Pi using `nohup`.
+- Logs are written to `deftech-tgbot.log` on the Pi.
 
 ## Usage
 
-Build and run:
+Build and run locally:
 ```bash
-go build -o bin/deftech-tgbot .
-./bin/deftech-tgbot
+go build -o _bin/deftech-tgbot .
+./_bin/deftech-tgbot
 ```
+
+Or use the convenience script:
+```bash
+./build_and_run.sh
+```
+
+For Raspberry Pi deployment, see the [Raspberry Pi Deployment](#raspberry-pi-deployment) section.
 
 ### Commands
 
@@ -99,6 +171,14 @@ deftech-vacancies-tgbot/
 ├── app/bot.go            # Bot logic, handlers, and database operations
 ├── migrations/           # Database schema migrations
 │   └── 001_initial.sql   # Initial schema
+├── _rpi_scripts/         # Additional Raspberry Pi management scripts
+│   ├── build_for_rpi.sh
+│   ├── copy_bin_to_rpi.sh
+│   └── copy_db_from_rpi.sh
+│   ├── copy_db_to_rpi.sh
+│   ├── start_bot_on_rpi.sh
+│   ├── stop_bot_on_rpi.sh
+│   └── view_logs_rpi.sh
 ├── build_and_run.sh      # Build and run script
 ├── .env                  # Environment configuration
 ├── .env.example          # Environment configuration template
@@ -106,5 +186,5 @@ deftech-vacancies-tgbot/
 ├── go.mod                # Go module dependencies
 ├── go.sum                # Go module checksums
 ├── deftech-tgbot.db      # SQLite database (auto-created, configurable via DB_NAME)
-└── bin/                  # Compiled binaries
+└── _bin/                  # Compiled binaries
 ```
