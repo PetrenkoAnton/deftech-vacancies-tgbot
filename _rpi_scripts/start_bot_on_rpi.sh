@@ -12,8 +12,7 @@ echo "Stopping previous bot and starting new one..."
 ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST" << EOF
   pkill -f $PI_BINARY || true
   cd $PI_ROOT_PATH
-  > $PI_LOG_FILE
-  nohup ./$PI_BINARY >> $PI_LOG_FILE 2>&1 &
+  nohup ./$PI_BINARY >> ./$PI_LOG_FILE 2>&1 &
 EOF
 
 # Print success message
