@@ -10,7 +10,7 @@ echo "Setting up Raspberry Pi for deftech-tgbot..."
 
 # Step 1: Set up logrotate
 echo "Setting up logrotate..."
-scp -i "$PI_KEY" logrotate.conf "$PI_USER@$PI_HOST":/tmp/logrotate.conf
+scp -i "$PI_KEY" ../logrotate.conf "$PI_USER@$PI_HOST":/tmp/logrotate.conf
 ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST" "sudo mv /tmp/logrotate.conf /etc/logrotate.d/deftech-tgbot && sudo chown root:root /etc/logrotate.d/deftech-tgbot"
 echo "Logrotate configured."
 

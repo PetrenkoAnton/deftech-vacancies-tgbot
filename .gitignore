@@ -63,4 +63,4 @@ secrets.json
 /dist/
 /build/
 
-/_rpi_scripts/logrotate.conf
+logrotate.conf

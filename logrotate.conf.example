@@ -1,11 +1,11 @@
 # Logrotate configuration for deftech-tgbot
-/home/pi/deftech-tgbot/deftech-tgbot.log {
+/home/{_user_}/deftech-tgbot/{_log_file_} {
     size 10M
     rotate 5
     compress
     missingok
     notifempty
-    create 644 pi pi
+    create 644 {_user_} {_user_}
     postrotate
         # Optional: restart or signal the bot if needed
     endscript

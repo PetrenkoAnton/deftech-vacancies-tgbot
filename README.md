@@ -123,7 +123,7 @@ For production deployment, create a `.prod.env` file by copying `.env` and updat
 ### Notes
 - All scripts source the `.env` file for configuration.
 - Ensure SSH key authentication is set up between your local machine and the Raspberry Pi.
-- The `setup_rpi.sh` script configures logrotate for 10 MB log limits and sets up a systemd service for auto-start on reboot.
+- The `setup_rpi.sh` script configures logrotate for 10 MB log limits (using `logrotate.conf` as template) and sets up a systemd service for auto-start on reboot.
 - Logs are written to `deftech-tgbot.log` on the Pi.
 
 ## Usage
@@ -189,6 +189,7 @@ deftech-vacancies-tgbot/
 │   ├── update_rpi.sh
 │   └── view_logs_rpi.sh
 ├── build_and_run.sh      # Build and run script
+├── logrotate.conf        # Logrotate configuration for RPi logs
 ├── .env                  # Dev environment configuration
 ├── .prod.env             # Production environment configuration
 ├── .env.example          # Environment configuration template
