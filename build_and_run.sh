@@ -10,7 +10,7 @@ if [ $? -eq 0 ]; then
     echo "Terminating any existing instance →"
     pkill -f deftech-tgbot || true
     echo "Running the application →"
-    ./bin/deftech-tgbot
+    ./_bin/deftech-tgbot
 else
     echo "Build failed."
     exit 1
