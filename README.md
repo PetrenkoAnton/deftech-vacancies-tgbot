@@ -76,6 +76,8 @@ LOG_PATH=                         # e.g., "/home/pi/deftech-tgbot/deftech-tgbot.
 PI_BINARY=                        # e.g., "deftech-tg-bot-rpi"
 ```
 
+For production deployment, create a `.prod.env` file by copying `.env` and updating it with production values (e.g., production BOT_TOKEN, ADMIN_ID, etc.). The deployment scripts will use `.prod.env` if available, otherwise `.env`.
+
 ### Deployment Steps
 1. **Build for ARM64**:
    ```bash
@@ -97,7 +99,7 @@ PI_BINARY=                        # e.g., "deftech-tg-bot-rpi"
    ./_rpi_scripts/stop_bot_on_rpi.sh
    ```
 
-5. **View logs**:
+5. **View logs** (live updates):
    ```bash
    ./_rpi_scripts/view_logs_rpi.sh
    ```
