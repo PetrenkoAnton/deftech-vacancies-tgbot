@@ -120,11 +120,6 @@ For production deployment, create a `.prod.env` file by copying `.env` and updat
 - Ensure SSH key authentication is set up between your local machine and the Raspberry Pi.
 - The bot runs in the background on the Pi using `nohup`.
 - Logs are written to `deftech-tgbot.log` on the Pi.
-- To limit log file size to 10 MB, set up logrotate:
-  ```bash
-  ./_rpi_scripts/setup_logrotate.sh
-  ```
-  This copies `logrotate.conf` to `/etc/logrotate.d/deftech-tgbot` on the Raspberry Pi. Logrotate will automatically rotate the log when it reaches 10 MB, keeping 5 compressed copies.
 
 ## Usage
 
@@ -181,17 +176,12 @@ deftech-vacancies-tgbot/
 ├── _rpi_scripts/         # Additional Raspberry Pi management scripts
 │   ├── build_for_rpi.sh
 │   ├── copy_bin_to_rpi.sh
-│   ├── copy_db_from_rpi.sh
-│   ├── setup_logrotate.sh
-│   ├── start_bot_on_rpi.sh
-│   ├── stop_bot_on_rpi.sh
-│   └── view_logs_rpi.sh
+│   └── copy_db_from_rpi.sh
 │   ├── copy_db_to_rpi.sh
 │   ├── start_bot_on_rpi.sh
 │   ├── stop_bot_on_rpi.sh
 │   └── view_logs_rpi.sh
 ├── build_and_run.sh      # Build and run script
-├── logrotate.conf         # Logrotate configuration for RPi logs
 ├── .env                  # Environment configuration
 ├── .env.example          # Environment configuration template
 ├── VERSION               # Bot version file
