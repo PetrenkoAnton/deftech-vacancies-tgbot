@@ -48,12 +48,12 @@ go mod download
 cp .env.example .env
 ```
 ```bash
-BOT_TOKEN= # from @BotFather
-ADMIN_ID= #Your Telegram user ID (get from @userinfobot)
-INTERVAL=1 #Posting interval in minutes
-DEFTECH_URL=https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2 #Deftech vacancies URL
+BOT_TOKEN=  # From @BotFather
+ADMIN_ID=   # Your Telegram user ID (get from @userinfobot)
+INTERVAL=1  # Posting interval in minutes
+DEFTECH_URL="https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2" # Deftech vacancies URL
 DB_NAME="./deftech-tgbot.db"
-LIMIT=50 #max vacancies to display in saved lists (20-200)
+LIMIT=50    # Max vacancies to display in saved lists (20-200)
 ```
 
 ## Raspberry Pi Deployment
@@ -68,12 +68,12 @@ For deploying the bot on a Raspberry Pi (ARM64), follow these steps:
 ### Configuration
 Update the Raspberry Pi connection details in `.env`:
 ```bash
-PI_HOST=                          # e.g., "192.168.1.100"
-PI_USER=                          # e.g., "pi"
-PI_KEY=                           # e.g., "$HOME/.ssh/id_rsa"
-PI_ROOT_PATH=                     # e.g., "/home/pi/deftech-tgbot"
-LOG_PATH=                         # e.g., "/home/pi/deftech-tgbot/deftech-tgbot.log"
-PI_BINARY=                        # e.g., "deftech-tg-bot-rpi"
+PI_HOST=       # e.g., "192.168.1.100"
+PI_USER=       # e.g., "pi"
+PI_KEY=        # e.g., "$HOME/.ssh/id_rsa"
+PI_ROOT_PATH=  # e.g., "/home/pi/deftech-tgbot"
+LOG_PATH=      # e.g., "/home/pi/deftech-tgbot/deftech-tgbot.log"
+PI_BINARY=     # e.g., "deftech-tg-bot-rpi"
 ```
 
 For production deployment, create a `.prod.env` file by copying `.env` and updating it with production values (e.g., production BOT_TOKEN, ADMIN_ID, etc.). The deployment scripts will use `.prod.env` if available, otherwise `.env`.
@@ -89,9 +89,9 @@ For production deployment, create a `.prod.env` file by copying `.env` and updat
    ./_rpi_scripts/copy_bin_to_rpi.sh
    ```
 
-3. **Start the bot on Raspberry Pi**:
+3. **Set up Raspberry Pi (logrotate and auto-start service)**:
    ```bash
-   ./_rpi_scripts/start_bot_on_rpi.sh
+   ./_rpi_scripts/setup_rpi.sh
    ```
 
 4. **Stop the bot**:
@@ -118,7 +118,7 @@ For production deployment, create a `.prod.env` file by copying `.env` and updat
 ### Notes
 - All scripts source the `.env` file for configuration.
 - Ensure SSH key authentication is set up between your local machine and the Raspberry Pi.
-- The bot runs in the background on the Pi using `nohup`.
+- The `setup_rpi.sh` script configures logrotate for 10 MB log limits and sets up a systemd service for auto-start on reboot.
 - Logs are written to `deftech-tgbot.log` on the Pi.
 
 ## Usage
@@ -176,13 +176,15 @@ deftech-vacancies-tgbot/
 ├── _rpi_scripts/         # Additional Raspberry Pi management scripts
 │   ├── build_for_rpi.sh
 │   ├── copy_bin_to_rpi.sh
-│   └── copy_db_from_rpi.sh
+│   ├── copy_db_from_rpi.sh
 │   ├── copy_db_to_rpi.sh
+│   ├── setup_rpi.sh
 │   ├── start_bot_on_rpi.sh
 │   ├── stop_bot_on_rpi.sh
 │   └── view_logs_rpi.sh
 ├── build_and_run.sh      # Build and run script
-├── .env                  # Environment configuration
+├── .env                  # Dev environment configuration
+├── .prod.env             # Production environment configuration
 ├── .env.example          # Environment configuration template
 ├── VERSION               # Bot version file
 ├── go.mod                # Go module dependencies
