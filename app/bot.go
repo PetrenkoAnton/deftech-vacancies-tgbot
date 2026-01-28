@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/net/html"
 	telebot "gopkg.in/telebot.v3"
+	_ "modernc.org/sqlite"
 )
 
 const (
@@ -100,7 +100,7 @@ func New(token string, adminID string, intervalStr string, dbName string, deftec
 	}
 
 	// Initialize database
-	db, err := sql.Open("sqlite3", dbName)
+	db, err := sql.Open("sqlite", dbName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}

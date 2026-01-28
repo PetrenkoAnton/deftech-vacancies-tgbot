@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ dev_github_actions, main, dev_auto_send_to_group ]
+    branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
 

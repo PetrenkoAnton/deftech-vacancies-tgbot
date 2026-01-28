@@ -2,7 +2,7 @@
 
 # Build the Go project
 echo "Building the project →"
-go build -o ./bin/deftech-tgbot .
+go build -o ./_bin/deftech-tgbot .
 
 # Check if build was successful
 if [ $? -eq 0 ]; then
@@ -10,7 +10,7 @@ if [ $? -eq 0 ]; then
     echo "Terminating any existing instance →"
     pkill -f deftech-tgbot || true
     echo "Running the application →"
-    ./bin/deftech-tgbot
+    ./_bin/deftech-tgbot
 else
     echo "Build failed."
     exit 1

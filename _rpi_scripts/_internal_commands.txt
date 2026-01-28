@@ -1,0 +1,2 @@
+sudo systemctl status deftech-tgbot
+sudo journalctl -u deftech-tgbot -n 10
