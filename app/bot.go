@@ -673,7 +673,7 @@ func (b *Bot) fetchJobTitles() ([]string, error) {
 func (b *Bot) fetchJobTitlesFromPage(page int) ([]VacancyInfo, error) {
 	url := fmt.Sprintf("https://dwarfengineering.peopleforce.io/careers?page=%d", page)
 
-	resp, err := b.httpClient.Get(url)
+	resp, err := b.getWithUserAgent(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch page: %w", err)
 	}
@@ -692,11 +692,14 @@ func (b *Bot) fetchJobTitlesFromPage(page int) ([]VacancyInfo, error) {
 	return vacancies, nil
 }
 
-// extractText extracts text content from a node
-func (b *Bot) extractText(n *html.Node) string {
-	var text strings.Builder
-	b.collectText(n, &text)
-	return text.String()
+// getWithUserAgent performs a GET request with a User-Agent header
+func (b *Bot) getWithUserAgent(url string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Bot/1.0)")
+	return b.httpClient.Do(req)
 }
 
 // collectText recursively collects text from a node
@@ -715,7 +718,7 @@ func (b *Bot) findJobTitles(n *html.Node) []VacancyInfo {
 	if n.Type == html.ElementNode && n.Data == "h4" {
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
 			if c.Type == html.ElementNode && c.Data == "a" {
-				title := strings.TrimSpace(b.extractText(c))
+				title := strings.TrimSpace(extractText(c))
 				var url string
 				for _, attr := range c.Attr {
 					if attr.Key == "href" {
@@ -997,7 +1000,7 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 	url := "https://jobs.dou.ua/vacancies/dwarf-engineering/feeds/"
 
 	// Fetch the RSS feed
-	resp, err := b.httpClient.Get(url)
+	resp, err := b.getWithUserAgent(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch RSS feed: %w", err)
 	}
@@ -1047,7 +1050,7 @@ func (b *Bot) fetchJobTitlesFromDOU() ([]string, error) {
 func (b *Bot) fetchJobTitlesFromDjinni() ([]string, []DjinniVacancyInfo, error) {
 	url := "https://djinni.co/jobs/company-dwarf-engineering/"
 
-	resp, err := b.httpClient.Get(url)
+	resp, err := b.getWithUserAgent(url)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch djinni page: %w", err)
 	}
@@ -1115,7 +1118,7 @@ func (b *Bot) extractDjinniVacancyInfo(node *html.Node) DjinniVacancyInfo {
 					if attr.Key == "class" && strings.Contains(attr.Val, "fs-3") {
 						for c := n.FirstChild; c != nil; c = c.NextSibling {
 							if c.Type == html.ElementNode && c.Data == "a" {
-								vacancy.Title = strings.TrimSpace(b.extractText(c))
+								vacancy.Title = strings.TrimSpace(extractText(c))
 								for _, a := range c.Attr {
 									if a.Key == "href" {
 										vacancy.URL = a.Val
@@ -1136,7 +1139,7 @@ func (b *Bot) extractDjinniVacancyInfo(node *html.Node) DjinniVacancyInfo {
 			if n.Data == "div" {
 				for _, attr := range n.Attr {
 					if attr.Key == "class" && strings.Contains(attr.Val, "text-secondary") {
-						text := strings.TrimSpace(b.extractText(n))
+						text := strings.TrimSpace(extractText(n))
 						// Split by · to get individual metadata parts
 						parts := strings.Split(text, "·")
 						for _, part := range parts {
@@ -1172,7 +1175,7 @@ func (b *Bot) extractDjinniVacancyInfo(node *html.Node) DjinniVacancyInfo {
 func (b *Bot) FetchJobTitlesFromDeftech() ([]VacancyInfo, error) {
 	url := b.deftechURL
 
-	resp, err := b.httpClient.Get(url)
+	resp, err := b.getWithUserAgent(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch page: %w", err)
 	}
