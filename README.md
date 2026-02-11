@@ -13,8 +13,8 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
 
 - **Commands**:
   - `/get_saved_visible` - Get visible deftech vacancies only (from database, excludes Dwarf Engineering)
-  - `/fetch_newest` - Fetch and post only new deftech vacancies
-  - `/fetch_latest` - Fetch and display latest deftech vacancies (no saving)
+- `/fetch_newest` - Fetch and post only new deftech vacancies (from first 2 pages)
+- `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving)
   - `/dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies)
   - `/get_saved_latest` - Get all saved vacancies with hide/show controls (excludes Dwarf Engineering)
   - `/clear_saved` - Clear hidden vacancies from database
@@ -23,6 +23,11 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
   - Configurable periodic fetching and posting of **new** deftech vacancies to the admin
   - Only posts when new vacancies are discovered; logs otherwise
   - Set `INTERVAL` in minutes to enable automatic vacancy updates
+  - Fetches from the first 2 pages of job listings for comprehensive coverage
+
+- **Message Batching**:
+  - Long vacancy lists are automatically split into messages containing up to 50 vacancies each
+  - Helps manage Telegram's message length limits and improves readability
 
 - **Security**:
   - All bot commands require admin authorization
@@ -53,7 +58,7 @@ ADMIN_ID=   # Your Telegram user ID (get from @userinfobot)
 INTERVAL=1  # Posting interval in minutes
 DEFTECH_URL="https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2" # Deftech vacancies URL
 DB_NAME="deftech-tgbot.db"
-LIMIT=50    # Max vacancies to display in saved lists (20-200)
+LIMIT=50    # Max vacancies to display in saved lists (20-200), lists are batched into messages of up to 50 vacancies each
 ```
 
 ## Raspberry Pi Deployment
@@ -75,6 +80,74 @@ PI_ROOT_PATH=  # e.g., "/home/pi/deftech-tgbot"
 PI_LOG_FILE=   # e.g., "deftech-tgbot.log"
 PI_BINARY=     # e.g., "deftech-tgbot-rpi"
 ```
+
+For deploying the bot on a Raspberry Pi (ARM64), follow these steps:
+
+### Prerequisites
+- Raspberry Pi with SSH access
+- SSH key pair configured for passwordless login
+- Go installed on the local machine for cross-compilation
+
+### Configuration
+Update the Raspberry Pi connection details in `.env`:
+```bash
+PI_HOST=       # e.g., "192.168.1.100"
+PI_USER=       # e.g., "pi"
+PI_KEY=        # e.g., "$HOME/.ssh/id_rsa"
+PI_ROOT_PATH=  # e.g., "/home/pi/deftech-tgbot"
+PI_LOG_FILE=   # e.g., "deftech-tgbot.log"
+PI_BINARY=     # e.g., "deftech-tgbot-rpi"
+```
+
+For production deployment, create a `.prod.env` file by copying `.env` and updating it with production values (e.g., production BOT_TOKEN, ADMIN_ID, etc.). The deployment scripts will use `.prod.env` if available, otherwise `.env`.
+
+### Deployment Steps
+1. **Build for ARM64**:
+   ```bash
+   ./_rpi_scripts/build_for_rpi.sh
+   ```
+
+2. **Copy binary and environment file to Raspberry Pi**:
+   ```bash
+   ./_rpi_scripts/copy_bin_to_rpi.sh
+   ```
+
+3. **Set up Raspberry Pi (logrotate and auto-start service)**:
+   ```bash
+   ./_rpi_scripts/setup_rpi.sh
+   ```
+
+4. **Start the bot** (initial start, or restart later):
+   ```bash
+   ./_rpi_scripts/start_bot_on_rpi.sh
+   ```
+
+5. **Stop the bot**:
+   ```bash
+   ./_rpi_scripts/stop_bot_on_rpi.sh
+   ```
+
+6. **View logs** (live updates):
+   ```bash
+   ./_rpi_scripts/view_logs_rpi.sh
+   ```
+
+### Database Management
+- **Copy database to Pi**:
+  ```bash
+   ./_rpi_scripts/copy_db_to_rpi.sh
+  ```
+
+- **Copy database from Pi to local** (with timestamp prefix):
+  ```bash
+   ./_rpi_scripts/copy_db_from_rpi.sh
+  ```
+
+### Notes
+- All scripts source the `.env` file for configuration.
+- Ensure SSH key authentication is set up between your local machine and the Raspberry Pi.
+- The `setup_rpi.sh` script configures logrotate for 10 MB log limits (using `logrotate.conf` as template) and sets up a systemd service for auto-start on reboot.
+- Logs are written to `deftech-tgbot.log` on the Pi.
 
 For production deployment, create a `.prod.env` file by copying `.env` and updating it with production values (e.g., production BOT_TOKEN, ADMIN_ID, etc.). The deployment scripts will use `.prod.env` if available, otherwise `.env`.
 
@@ -148,9 +221,9 @@ For Raspberry Pi deployment, see the [Raspberry Pi Deployment](#raspberry-pi-dep
 - `/start` - Welcome message and command overview
 - `/help` - Show available commands
 - `/get_saved_visible` - Show only visible (non-hidden) DefTech jobs from database (excludes Dwarf Engineering)
-- `/fetch_newest` - Fetch and post only new DefTech jobs
-- `/fetch_latest` - Fetch and display latest DefTech jobs without saving
-- `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + DOU.ua)
+- `/fetch_newest` - Fetch and post only new DefTech jobs (from first 2 pages)
+- `/fetch_latest` - Fetch and display latest DefTech jobs without saving (from first 2 pages)
+- `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + DOU.ua + djinni.co)
 - `/get_saved_latest` - Fetch all saved jobs with interactive hide/show links (excludes Dwarf Engineering, shows total count of all saved vacancies)
 - `/clear_saved` - Clear hidden jobs from database (admin only)
 
