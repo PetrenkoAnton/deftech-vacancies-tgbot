@@ -2,11 +2,14 @@ package bot
 
 import (
 	"database/sql"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -70,6 +73,13 @@ type DjinniVacancyInfo struct {
 	Applies string
 }
 
+// XHRResponse represents the response from xhr-load endpoint
+type XHRResponse struct {
+	HTML string `json:"html"`
+	Last bool   `json:"last"`
+	Num  int    `json:"num"`
+}
+
 // Bot represents the Telegram bot instance
 type Bot struct {
 	telebot    *telebot.Bot
@@ -94,9 +104,14 @@ func New(token string, adminID string, intervalStr string, dbName string, deftec
 		return nil, err
 	}
 
-	// Initialize HTTP client
+	// Initialize HTTP client with cookie jar
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cookie jar: %w", err)
+	}
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
+		Jar:     jar,
 	}
 
 	// Initialize database
@@ -702,13 +717,45 @@ func (b *Bot) getWithUserAgent(url string) (*http.Response, error) {
 	return b.httpClient.Do(req)
 }
 
+// fetchXHRPage fetches additional vacancies via AJAX
+func (b *Bot) fetchXHRPage(xhrURL, csrfToken string, count int) (*XHRResponse, error) {
+	data := url.Values{}
+	data.Set("csrfmiddlewaretoken", csrfToken)
+	data.Set("count", strconv.Itoa(count))
+
+	req, err := http.NewRequest("POST", xhrURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Bot/1.0)")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Referer", b.deftechURL)
+
+	resp, err := b.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var xhrResp XHRResponse
+	if err := json.NewDecoder(resp.Body).Decode(&xhrResp); err != nil {
+		return nil, fmt.Errorf("failed to decode JSON: %w", err)
+	}
+
+	return &xhrResp, nil
+}
+
 // collectText recursively collects text from a node
-func (b *Bot) collectText(n *html.Node, text *strings.Builder) {
+func collectText(n *html.Node, text *strings.Builder) {
 	if n.Type == html.TextNode {
 		text.WriteString(n.Data)
 	}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		b.collectText(c, text)
+		collectText(c, text)
 	}
 }
 
@@ -842,14 +889,29 @@ func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
 		return c.Send("No visible vacancies found.", b.getCommandKeyboard(), telebot.Silent)
 	}
 
-	// Format and send the list
-	var message strings.Builder
+	// Send vacancies in chunks to avoid message length limit
+	const maxVacanciesPerMessage = 20
+	for i := 0; i < len(vacancies); i += maxVacanciesPerMessage {
+		end := i + maxVacanciesPerMessage
+		if end > len(vacancies) {
+			end = len(vacancies)
+		}
+		chunk := vacancies[i:end]
 
-	for i, vacancy := range vacancies {
-		message.WriteString(b.formatVacancyMessage(i, vacancy, c.Bot().Me.Username))
+		var message strings.Builder
+		for j, vacancy := range chunk {
+			message.WriteString(b.formatVacancyMessage(i+j, vacancy, c.Bot().Me.Username))
+		}
+
+		// Add keyboard only to the last message
+		if end == len(vacancies) {
+			c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
+		} else {
+			c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, telebot.Silent)
+		}
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
+	return nil
 }
 
 // handleGetSavedLatest handles the /get_saved_latest command
@@ -1171,11 +1233,11 @@ func (b *Bot) extractDjinniVacancyInfo(node *html.Node) DjinniVacancyInfo {
 	return vacancy
 }
 
-// FetchJobTitlesFromDeftech fetches and parses job titles from deftech.dou.ua page
+// FetchJobTitlesFromDeftech fetches and parses job titles from deftech.dou.ua page with pagination
 func (b *Bot) FetchJobTitlesFromDeftech() ([]VacancyInfo, error) {
-	url := b.deftechURL
+	pageURL := b.deftechURL
 
-	resp, err := b.getWithUserAgent(url)
+	resp, err := b.getWithUserAgent(pageURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch page: %w", err)
 	}
@@ -1190,7 +1252,52 @@ func (b *Bot) FetchJobTitlesFromDeftech() ([]VacancyInfo, error) {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
+	// Extract CSRF token from cookies
+	u, _ := url.Parse(pageURL)
+	cookies := b.httpClient.Jar.Cookies(u)
+	var csrfToken string
+	for _, cookie := range cookies {
+		if cookie.Name == "csrftoken" {
+			csrfToken = cookie.Value
+			break
+		}
+	}
+	if csrfToken == "" {
+		return nil, fmt.Errorf("failed to extract CSRF token from cookies")
+	}
+
 	vacancyInfos := findJobTitlesDeftech(doc)
+	count := len(vacancyInfos)
+	log.Printf("Fetched %d initial vacancies from deftech", count)
+
+	// Load more pages via AJAX, up to 2 additional pages (total pages 1-3)
+	xhrURL := strings.Replace(pageURL, "/jobs/", "/jobs/xhr-load/", 1)
+	maxAdditionalPages := 2
+	pageCount := 0
+	for pageCount < maxAdditionalPages {
+		xhrResp, err := b.fetchXHRPage(xhrURL, csrfToken, count)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch xhr page: %w", err)
+		}
+
+		if xhrResp.Last {
+			break
+		}
+
+		// Parse the additional HTML
+		additionalDoc, err := html.Parse(strings.NewReader(xhrResp.HTML))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse additional HTML: %w", err)
+		}
+
+		additionalVacancies := findJobTitlesDeftech(additionalDoc)
+		log.Printf("Fetched %d additional vacancies from page %d", len(additionalVacancies), pageCount+2)
+		vacancyInfos = append(vacancyInfos, additionalVacancies...)
+		count += xhrResp.Num
+		pageCount++
+	}
+
+	log.Printf("Total vacancies fetched: %d", len(vacancyInfos))
 	return vacancyInfos, nil
 }
 
@@ -1262,16 +1369,6 @@ func extractText(n *html.Node) string {
 	var text strings.Builder
 	collectText(n, &text)
 	return text.String()
-}
-
-// collectText recursively collects text from a node
-func collectText(n *html.Node, text *strings.Builder) {
-	if n.Type == html.TextNode {
-		text.WriteString(n.Data)
-	}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		collectText(c, text)
-	}
 }
 
 // handleText handles text messages
