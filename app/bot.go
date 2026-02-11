@@ -1270,9 +1270,9 @@ func (b *Bot) FetchJobTitlesFromDeftech() ([]VacancyInfo, error) {
 	count := len(vacancyInfos)
 	log.Printf("Fetched %d initial vacancies from deftech", count)
 
-	// Load more pages via AJAX, up to 2 additional pages (total pages 1-3)
+	// Load more pages via AJAX, up to 1 additional page (total pages 1-2)
 	xhrURL := strings.Replace(pageURL, "/jobs/", "/jobs/xhr-load/", 1)
-	maxAdditionalPages := 2
+	maxAdditionalPages := 1
 	pageCount := 0
 	for pageCount < maxAdditionalPages {
 		xhrResp, err := b.fetchXHRPage(xhrURL, csrfToken, count)
