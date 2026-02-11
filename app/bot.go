@@ -374,15 +374,39 @@ func (b *Bot) sendVacancyList(c telebot.Context, vacancies []Vacancy, totalCount
 		}
 	}
 
-	// Format and send the list
-	var message strings.Builder
-	message.WriteString(fmt.Sprintf("Total vacancies: %d\n\n", totalCount))
+	const batchSize = 50
 
-	for i, vacancy := range vacancies {
-		message.WriteString(b.formatVacancyMessage(i, vacancy, c.Bot().Me.Username))
+	// Send the total count in the first message
+	firstMessage := fmt.Sprintf("Total vacancies: %d\n\n", totalCount)
+	err := c.Send(firstMessage, telebot.ModeMarkdown, telebot.NoPreview, telebot.Silent)
+	if err != nil {
+		return err
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
+	// Send vacancies in batches of 50
+	for i := 0; i < len(vacancies); i += batchSize {
+		end := i + batchSize
+		if end > len(vacancies) {
+			end = len(vacancies)
+		}
+
+		var message strings.Builder
+		for j, vacancy := range vacancies[i:end] {
+			message.WriteString(b.formatVacancyMessage(i+j, vacancy, c.Bot().Me.Username))
+		}
+
+		// Add keyboard only to the last message
+		if end == len(vacancies) {
+			err = c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
+		} else {
+			err = c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, telebot.Silent)
+		}
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // getVisibleVacancies retrieves all non-hidden vacancies from the database
@@ -890,7 +914,7 @@ func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
 	}
 
 	// Send vacancies in chunks to avoid message length limit
-	const maxVacanciesPerMessage = 20
+	const maxVacanciesPerMessage = 50
 	for i := 0; i < len(vacancies); i += maxVacanciesPerMessage {
 		end := i + maxVacanciesPerMessage
 		if end > len(vacancies) {
