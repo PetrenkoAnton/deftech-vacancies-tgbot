@@ -81,6 +81,74 @@ PI_LOG_FILE=   # e.g., "deftech-tgbot.log"
 PI_BINARY=     # e.g., "deftech-tgbot-rpi"
 ```
 
+For deploying the bot on a Raspberry Pi (ARM64), follow these steps:
+
+### Prerequisites
+- Raspberry Pi with SSH access
+- SSH key pair configured for passwordless login
+- Go installed on the local machine for cross-compilation
+
+### Configuration
+Update the Raspberry Pi connection details in `.env`:
+```bash
+PI_HOST=       # e.g., "192.168.1.100"
+PI_USER=       # e.g., "pi"
+PI_KEY=        # e.g., "$HOME/.ssh/id_rsa"
+PI_ROOT_PATH=  # e.g., "/home/pi/deftech-tgbot"
+PI_LOG_FILE=   # e.g., "deftech-tgbot.log"
+PI_BINARY=     # e.g., "deftech-tgbot-rpi"
+```
+
+For production deployment, create a `.prod.env` file by copying `.env` and updating it with production values (e.g., production BOT_TOKEN, ADMIN_ID, etc.). The deployment scripts will use `.prod.env` if available, otherwise `.env`.
+
+### Deployment Steps
+1. **Build for ARM64**:
+   ```bash
+   ./_rpi_scripts/build_for_rpi.sh
+   ```
+
+2. **Copy binary and environment file to Raspberry Pi**:
+   ```bash
+   ./_rpi_scripts/copy_bin_to_rpi.sh
+   ```
+
+3. **Set up Raspberry Pi (logrotate and auto-start service)**:
+   ```bash
+   ./_rpi_scripts/setup_rpi.sh
+   ```
+
+4. **Start the bot** (initial start, or restart later):
+   ```bash
+   ./_rpi_scripts/start_bot_on_rpi.sh
+   ```
+
+5. **Stop the bot**:
+   ```bash
+   ./_rpi_scripts/stop_bot_on_rpi.sh
+   ```
+
+6. **View logs** (live updates):
+   ```bash
+   ./_rpi_scripts/view_logs_rpi.sh
+   ```
+
+### Database Management
+- **Copy database to Pi**:
+  ```bash
+   ./_rpi_scripts/copy_db_to_rpi.sh
+  ```
+
+- **Copy database from Pi to local** (with timestamp prefix):
+  ```bash
+   ./_rpi_scripts/copy_db_from_rpi.sh
+  ```
+
+### Notes
+- All scripts source the `.env` file for configuration.
+- Ensure SSH key authentication is set up between your local machine and the Raspberry Pi.
+- The `setup_rpi.sh` script configures logrotate for 10 MB log limits (using `logrotate.conf` as template) and sets up a systemd service for auto-start on reboot.
+- Logs are written to `deftech-tgbot.log` on the Pi.
+
 For production deployment, create a `.prod.env` file by copying `.env` and updating it with production values (e.g., production BOT_TOKEN, ADMIN_ID, etc.). The deployment scripts will use `.prod.env` if available, otherwise `.env`.
 
 ### Deployment Steps
