@@ -10,12 +10,14 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
 - **Job Sources**:
   - [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs)
   - Dwarf Engineering ([dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers), [jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies), and [djinni.co/jobs/company-dwarf-engineering](https://djinni.co/jobs/company-dwarf-engineering/))
+  - Buntar Aerospace ([jobs.dou.ua/vacancies/buntar-aerospace](https://jobs.dou.ua/vacancies/buntar-aerospace/))
 
 - **Commands**:
   - `/get_saved_visible` - Get visible saved vacancies only (from database)
 - `/fetch_newest` - Fetch and post only new deftech vacancies (from first 2 pages)
 - `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving)
   - `/dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies)
+  - `/buntar_aerospace` - Get Buntar Aerospace vacancies
   - `/get_saved_latest` - Get all saved vacancies with hide/show controls
   - `/clear_saved` - Clear hidden vacancies from database
 
@@ -224,6 +226,7 @@ For Raspberry Pi deployment, see the [Raspberry Pi Deployment](#raspberry-pi-dep
 - `/fetch_newest` - Fetch and post only new DefTech jobs (from first 2 pages)
 - `/fetch_latest` - Fetch and display latest DefTech jobs without saving (from first 2 pages)
 - `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + DOU.ua + djinni.co)
+- `/buntar_aerospace` - Fetch jobs from Buntar Aerospace (DOU.ua RSS)
 - `/get_saved_latest` - Fetch all saved jobs with interactive hide/show links (shows total count of all saved vacancies)
 - `/clear_saved` - Clear hidden jobs from database (admin only)
 
