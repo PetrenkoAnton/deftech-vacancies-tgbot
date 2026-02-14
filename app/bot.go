@@ -32,7 +32,9 @@ const (
 		"/fetch_latest - Fetch latest vacancies from deftech.dou.ua\n\n" +
 		"/dwarf_engineering - Fetch Dwarf Engineering vacancies\n" +
 		"/buntar_aerospace - Fetch Buntar Aerospace vacancies\n\n" +
-		"/clear_saved - Clear hidden vacancies"
+		"/hide_all - Hide all visible vacancies\n\n" +
+		"/clear_saved - Clear hidden vacancies\n\n" +
+		"/build_version - Show current build version"
 
 	// Company names
 	// dwarfEngineeringCompany = "Dwarf Engineering"
@@ -185,6 +187,26 @@ func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/dwarf_engineering")
 	btnBuntar := markup.Data("Fetch Buntar Aerospace", "/buntar_aerospace")
 	markup.Inline(
+		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
+		markup.Row(btnFetchNewest, btnFetchLatest),
+		markup.Row(btnDwarf),
+		markup.Row(btnBuntar),
+	)
+	return markup
+}
+
+// getCommandKeyboardWithHideAll creates an inline keyboard with command buttons including "Hide all"
+func (b *Bot) getCommandKeyboardWithHideAll() *telebot.ReplyMarkup {
+	markup := &telebot.ReplyMarkup{}
+	btnHideAll := markup.Data("Hide all", "/hide_all")
+	btnGetSavedVisible := markup.Data("Get saved (visible)", "/get_saved_visible")
+	btnGetSavedLatest := markup.Data("Get saved (latest)", "/get_saved_latest")
+	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
+	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
+	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/dwarf_engineering")
+	btnBuntar := markup.Data("Fetch Buntar Aerospace", "/buntar_aerospace")
+	markup.Inline(
+		markup.Row(btnHideAll),
 		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
 		markup.Row(btnFetchNewest, btnFetchLatest),
 		markup.Row(btnDwarf),
@@ -480,6 +502,12 @@ func (b *Bot) registerHandlers() {
 	// Get saved vacancies command handler
 	b.telebot.Handle("/get_saved_latest", b.handleGetSavedLatest)
 
+	// Hide all command handler
+	b.telebot.Handle("/hide_all", b.handleHideAll)
+
+	// Build version command handler
+	b.telebot.Handle("/build_version", b.handleBuildVersion)
+
 	// Clear saved command handler
 	b.telebot.Handle("/clear_saved", b.handleClearSaved)
 
@@ -628,7 +656,25 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			time.Sleep(50 * time.Millisecond) // Small delay to ensure processing completes
 			c.Delete()
 		}()
-		return c.Send(fmt.Sprintf("[%s](%s) @ %s is hidden", title, url, company), b.getCommandKeyboard(), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
+		// Send status message
+		err = c.Send(fmt.Sprintf("[%s](%s) @ %s is hidden", title, url, company), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
+		if err != nil {
+			log.Printf("Error sending hide status message: %v", err)
+			return nil
+		}
+
+		// Send updated saved vacancies list
+		totalCount, err := b.getTotalVacancyCount()
+		if err != nil {
+			log.Printf("Error getting total count after hide: %v", err)
+			return nil // Don't return error as the hide operation succeeded
+		}
+		vacancies, err := b.getLatestVacancies(b.limit)
+		if err != nil {
+			log.Printf("Error getting latest vacancies after hide: %v", err)
+			return nil // Don't return error as the hide operation succeeded
+		}
+		return b.sendVacancyList(c, vacancies, totalCount, b.limit)
 	}
 	if strings.HasPrefix(payload, "unignore_") {
 		idStr := strings.TrimPrefix(payload, "unignore_")
@@ -659,7 +705,25 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			time.Sleep(50 * time.Millisecond) // Small delay to ensure processing completes
 			c.Delete()
 		}()
-		return c.Send(fmt.Sprintf("[%s](%s) @ %s is shown", title, url, company), b.getCommandKeyboard(), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
+		// Send status message
+		err = c.Send(fmt.Sprintf("[%s](%s) @ %s is shown", title, url, company), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
+		if err != nil {
+			log.Printf("Error sending show status message: %v", err)
+			return nil
+		}
+
+		// Send updated saved vacancies list
+		totalCount, err := b.getTotalVacancyCount()
+		if err != nil {
+			log.Printf("Error getting total count after show: %v", err)
+			return nil // Don't return error as the show operation succeeded
+		}
+		vacancies, err := b.getLatestVacancies(b.limit)
+		if err != nil {
+			log.Printf("Error getting latest vacancies after show: %v", err)
+			return nil // Don't return error as the show operation succeeded
+		}
+		return b.sendVacancyList(c, vacancies, totalCount, b.limit)
 	}
 
 	startText := "Hello! Welcome to the bot.\n\n" + commandsText
@@ -861,7 +925,7 @@ func (b *Bot) handleFetchNewest(c telebot.Context) error {
 		message.WriteString(b.formatVacancyInfoMessage(i, vacancyInfo, id, hidden, c.Bot().Me.Username))
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
+	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboardWithHideAll(), telebot.Silent)
 }
 
 // handleFetchLatest handles the /fetch_latest command
@@ -928,7 +992,7 @@ func (b *Bot) handleGetSavedVisible(c telebot.Context) error {
 
 		// Add keyboard only to the last message
 		if end == len(vacancies) {
-			c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
+			c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboardWithHideAll(), telebot.Silent)
 		} else {
 			c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, telebot.Silent)
 		}
@@ -1098,6 +1162,46 @@ func (b *Bot) handleClearSaved(c telebot.Context) error {
 		return c.Send("Error clearing hidden vacancies", b.getCommandKeyboard(), telebot.Silent)
 	}
 	return c.Send("Hidden vacancies cleared successfully", b.getCommandKeyboard(), telebot.Silent)
+}
+
+// handleHideAll handles the /hide_all command
+func (b *Bot) handleHideAll(c telebot.Context) error {
+	log.Printf("Command /hide_all received")
+
+	// Hide all visible vacancies
+	query := "UPDATE vacancies SET is_hidden = 1 WHERE is_hidden = 0"
+	result, err := b.db.Exec(query)
+	if err != nil {
+		log.Printf("Error hiding all vacancies: %v", err)
+		return c.Send("Error hiding vacancies", b.getCommandKeyboard(), telebot.Silent)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Printf("Error getting rows affected: %v", err)
+		return c.Send("Error hiding vacancies", b.getCommandKeyboard(), telebot.Silent)
+	}
+
+	if rowsAffected == 0 {
+		return c.Send("No visible vacancies to hide", b.getCommandKeyboard(), telebot.Silent)
+	}
+
+	return c.Send(fmt.Sprintf("Hidden %d vacancies successfully", rowsAffected), b.getCommandKeyboard(), telebot.Silent)
+}
+
+// handleBuildVersion handles the /build_version command
+func (b *Bot) handleBuildVersion(c telebot.Context) error {
+	log.Printf("Command /build_version received")
+
+	// Read the VERSION_BUILD file
+	versionBytes, err := os.ReadFile("VERSION_BUILD")
+	if err != nil {
+		log.Printf("Error reading VERSION_BUILD file: %v", err)
+		return c.Send("Error reading build version", b.getCommandKeyboard(), telebot.Silent)
+	}
+
+	version := strings.TrimSpace(string(versionBytes))
+	return c.Send(fmt.Sprintf("Current build version: %s", version), b.getCommandKeyboard(), telebot.Silent)
 }
 
 // RSSFeed represents the RSS feed structure
@@ -1514,6 +1618,14 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 		return err
 	case "/get_saved_latest":
 		err := b.handleGetSavedLatest(c)
+		c.Respond(&telebot.CallbackResponse{})
+		return err
+	case "/hide_all":
+		err := b.handleHideAll(c)
+		c.Respond(&telebot.CallbackResponse{})
+		return err
+	case "/build_version":
+		err := b.handleBuildVersion(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
 	default:

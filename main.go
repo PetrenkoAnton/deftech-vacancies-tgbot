@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
 	bot "miltech-tgbot/app"
@@ -62,7 +63,12 @@ func main() {
 	}
 
 	// Initialize bot
-	log.Println("Initializing Telegram bot →")
+	// Read build version
+	version := "unknown"
+	if versionBytes, err := os.ReadFile("VERSION_BUILD"); err == nil {
+		version = strings.TrimSpace(string(versionBytes))
+	}
+	log.Printf("Initializing Telegram bot (build: %s) →", version)
 	telegramBot, err := bot.New(botToken, adminID, intervalStr, dbName, deftechURL, limit)
 	if err != nil {
 		log.Fatalf("Failed to initialize bot: %v", err)

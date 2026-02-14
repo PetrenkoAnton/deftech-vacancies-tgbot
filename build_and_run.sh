@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Update build version
+echo "Updating build version →"
+./update_build_version.sh
+
 # Build the Go project
 echo "Building the project →"
 go build -o ./_bin/deftech-tgbot .
