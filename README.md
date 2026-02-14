@@ -22,6 +22,7 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
   - `/hide_all` - Hide all visible vacancies
   - `/clear_saved` - Clear hidden vacancies from database
   - `/build_version` - Show current build version
+  - `/build_version` - Show current build version
 
 - **Automatic Posting**:
   - Configurable periodic fetching and posting of **new** deftech vacancies to the admin
