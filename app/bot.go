@@ -34,7 +34,7 @@ const (
 		"/clear_saved - Clear hidden vacancies"
 
 	// Company names
-	dwarfEngineeringCompany = "Dwarf Engineering"
+	// dwarfEngineeringCompany = "Dwarf Engineering"
 
 	// Action prefixes for deep links
 	ignorePrefix   = "ignore"
@@ -271,27 +271,21 @@ func (b *Bot) getCompanyName(vacancy Vacancy) string {
 	return "Unknown"
 }
 
-// getTotalVacancyCountExcludingDwarf gets the total count of vacancies excluding Dwarf Engineering
-func (b *Bot) getTotalVacancyCountExcludingDwarf() (int, error) {
-	query := `
-		SELECT COUNT(*) FROM vacancies v
-		LEFT JOIN companies c ON v.company_id = c.id
-		WHERE c.name != ? OR c.name IS NULL
-	`
+// getTotalVacancyCount gets the total count of vacancies
+func (b *Bot) getTotalVacancyCount() (int, error) {
+	query := `SELECT COUNT(*) FROM vacancies`
 
 	var count int
-	err := b.db.QueryRow(query, dwarfEngineeringCompany).Scan(&count)
+	err := b.db.QueryRow(query).Scan(&count)
 	return count, err
 }
 
 // getLatestVacancies gets the latest N vacancies from database
 func (b *Bot) getLatestVacancies(limit int) ([]Vacancy, error) {
 	query := fmt.Sprintf(`SELECT v.id, v.title, v.url, v.company_id, v.is_hidden, v.created_at FROM vacancies v
-LEFT JOIN companies c ON v.company_id = c.id
-WHERE c.name != ? OR c.name IS NULL
 ORDER BY v.created_at DESC LIMIT %d`, limit)
 
-	rows, err := b.db.Query(query, dwarfEngineeringCompany)
+	rows, err := b.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -412,11 +406,10 @@ func (b *Bot) sendVacancyList(c telebot.Context, vacancies []Vacancy, totalCount
 // getVisibleVacancies retrieves all non-hidden vacancies from the database
 func (b *Bot) getVisibleVacancies() ([]Vacancy, error) {
 	query := `SELECT v.id, v.title, v.url, v.company_id, v.is_hidden, v.created_at FROM vacancies v
-LEFT JOIN companies c ON v.company_id = c.id
-WHERE v.is_hidden = FALSE AND (c.name != ? OR c.name IS NULL)
+WHERE v.is_hidden = FALSE
 ORDER BY v.created_at ASC`
 
-	rows, err := b.db.Query(query, dwarfEngineeringCompany)
+	rows, err := b.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -944,7 +937,7 @@ func (b *Bot) handleGetSavedLatest(c telebot.Context) error {
 	// Show loading message
 	c.Send(fmt.Sprintf("Getting %d latest saved vacancies from db →", b.limit), telebot.ModeMarkdown, telebot.Silent)
 
-	totalCount, err := b.getTotalVacancyCountExcludingDwarf()
+	totalCount, err := b.getTotalVacancyCount()
 	if err != nil {
 		log.Printf("Error getting total count: %v", err)
 		return c.Send("Error getting saved vacancies", b.getCommandKeyboard(), telebot.Silent)
