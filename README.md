@@ -13,13 +13,15 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
   - Buntar Aerospace ([jobs.dou.ua/vacancies/buntar-aerospace](https://jobs.dou.ua/vacancies/buntar-aerospace/))
 
 - **Commands**:
-  - `/get_saved_visible` - Get visible saved vacancies only (from database)
+- `/get_saved_visible` - Get visible saved vacancies only (from database)
 - `/fetch_newest` - Fetch and post only new deftech vacancies (from first 2 pages)
 - `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving)
   - `/dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies)
   - `/buntar_aerospace` - Get Buntar Aerospace vacancies
   - `/get_saved_latest` - Get all saved vacancies with hide/show controls
+  - `/hide_all` - Hide all visible vacancies
   - `/clear_saved` - Clear hidden vacancies from database
+  - `/build_version` - Show current build version
 
 - **Automatic Posting**:
   - Configurable periodic fetching and posting of **new** deftech vacancies to the admin
@@ -228,6 +230,8 @@ For Raspberry Pi deployment, see the [Raspberry Pi Deployment](#raspberry-pi-dep
 - `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + DOU.ua + djinni.co)
 - `/buntar_aerospace` - Fetch jobs from Buntar Aerospace (DOU.ua RSS)
 - `/get_saved_latest` - Fetch all saved jobs with interactive hide/show links (shows total count of all saved vacancies)
+- `/hide_all` - Hide all visible vacancies (admin only)
+- `/build_version` - Show current build version
 - `/clear_saved` - Clear hidden jobs from database (admin only)
 
 ### Automatic Posting

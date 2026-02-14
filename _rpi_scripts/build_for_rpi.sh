@@ -3,6 +3,10 @@
 cd "$(dirname "$0")"
 source ../.prod.env
 
+# Update build version
+echo "Updating build version →"
+../update_build_version.sh
+
 # Build script for Raspberry Pi ARM64
 
 # Print status message
