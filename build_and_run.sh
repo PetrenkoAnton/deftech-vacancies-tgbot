@@ -6,7 +6,7 @@ echo "Updating build version →"
 
 # Build the Go project
 echo "Building the project →"
-go build -o ./_bin/deftech-tgbot .
+go build -ldflags "-X main.version=$(cat VERSION) -X main.buildVersion=$(cat VERSION_BUILD)" -o ./_bin/deftech-tgbot .
 
 # Check if build was successful
 if [ $? -eq 0 ]; then
