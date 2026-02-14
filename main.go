@@ -5,13 +5,16 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 
 	bot "miltech-tgbot/app"
 
 	"github.com/joho/godotenv"
 )
+
+// Version variables set at compile time
+var version string      // from VERSION file
+var buildVersion string // from VERSION_BUILD file
 
 func main() {
 	// Load environment variables from .env file
@@ -63,13 +66,13 @@ func main() {
 	}
 
 	// Initialize bot
-	// Read build version
-	version := "unknown"
-	if versionBytes, err := os.ReadFile("VERSION_BUILD"); err == nil {
-		version = strings.TrimSpace(string(versionBytes))
+	// Use embedded build version for logging
+	logVersion := buildVersion
+	if logVersion == "" {
+		logVersion = "unknown"
 	}
-	log.Printf("Initializing Telegram bot (build: %s) →", version)
-	telegramBot, err := bot.New(botToken, adminID, intervalStr, dbName, deftechURL, limit)
+	log.Printf("Initializing Telegram bot (build: %s) →", logVersion)
+	telegramBot, err := bot.New(botToken, adminID, intervalStr, dbName, deftechURL, limit, version, buildVersion)
 	if err != nil {
 		log.Fatalf("Failed to initialize bot: %v", err)
 	}

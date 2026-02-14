@@ -85,17 +85,19 @@ type XHRResponse struct {
 
 // Bot represents the Telegram bot instance
 type Bot struct {
-	telebot    *telebot.Bot
-	db         *sql.DB
-	httpClient *http.Client
-	adminID    string
-	dbName     string
-	deftechURL string
-	limit      int
+	telebot      *telebot.Bot
+	db           *sql.DB
+	httpClient   *http.Client
+	adminID      string
+	dbName       string
+	deftechURL   string
+	limit        int
+	version      string
+	buildVersion string
 }
 
 // New creates a new bot instance
-func New(token string, adminID string, intervalStr string, dbName string, deftechURL string, limit int) (*Bot, error) {
+func New(token string, adminID string, intervalStr string, dbName string, deftechURL string, limit int, version string, buildVersion string) (*Bot, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -129,13 +131,15 @@ func New(token string, adminID string, intervalStr string, dbName string, deftec
 	}
 
 	bot := &Bot{
-		telebot:    b,
-		db:         db,
-		httpClient: httpClient,
-		adminID:    adminID,
-		dbName:     dbName,
-		deftechURL: deftechURL,
-		limit:      limit,
+		telebot:      b,
+		db:           db,
+		httpClient:   httpClient,
+		adminID:      adminID,
+		dbName:       dbName,
+		deftechURL:   deftechURL,
+		limit:        limit,
+		version:      version,
+		buildVersion: buildVersion,
 	}
 
 	// Apply admin middleware globally
@@ -663,18 +667,39 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			return nil
 		}
 
-		// Send updated saved vacancies list
-		totalCount, err := b.getTotalVacancyCount()
+		// Send updated visible vacancies list (like /get_saved_visible)
+		visibleVacancies, err := b.getVisibleVacancies()
 		if err != nil {
-			log.Printf("Error getting total count after hide: %v", err)
+			log.Printf("Error getting visible vacancies after hide: %v", err)
 			return nil // Don't return error as the hide operation succeeded
 		}
-		vacancies, err := b.getLatestVacancies(b.limit)
-		if err != nil {
-			log.Printf("Error getting latest vacancies after hide: %v", err)
-			return nil // Don't return error as the hide operation succeeded
+
+		if len(visibleVacancies) == 0 {
+			return c.Send("No visible vacancies found.", b.getCommandKeyboardWithHideAll(), telebot.Silent)
 		}
-		return b.sendVacancyList(c, vacancies, totalCount, b.limit)
+
+		// Send vacancies in chunks to avoid message length limit
+		const maxVacanciesPerMessage = 50
+		for i := 0; i < len(visibleVacancies); i += maxVacanciesPerMessage {
+			end := i + maxVacanciesPerMessage
+			if end > len(visibleVacancies) {
+				end = len(visibleVacancies)
+			}
+			chunk := visibleVacancies[i:end]
+
+			var message strings.Builder
+			for j, vacancy := range chunk {
+				message.WriteString(b.formatVacancyMessage(i+j, vacancy, c.Bot().Me.Username))
+			}
+
+			// Add keyboard only to the last message
+			if end == len(visibleVacancies) {
+				c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboardWithHideAll(), telebot.Silent)
+			} else {
+				c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, telebot.Silent)
+			}
+		}
+		return nil
 	}
 	if strings.HasPrefix(payload, "unignore_") {
 		idStr := strings.TrimPrefix(payload, "unignore_")
@@ -712,24 +737,45 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			return nil
 		}
 
-		// Send updated saved vacancies list
-		totalCount, err := b.getTotalVacancyCount()
+		// Send updated visible vacancies list (like /get_saved_visible)
+		visibleVacancies, err := b.getVisibleVacancies()
 		if err != nil {
-			log.Printf("Error getting total count after show: %v", err)
+			log.Printf("Error getting visible vacancies after show: %v", err)
 			return nil // Don't return error as the show operation succeeded
 		}
-		vacancies, err := b.getLatestVacancies(b.limit)
-		if err != nil {
-			log.Printf("Error getting latest vacancies after show: %v", err)
-			return nil // Don't return error as the show operation succeeded
+
+		if len(visibleVacancies) == 0 {
+			return c.Send("No visible vacancies found.", b.getCommandKeyboardWithHideAll(), telebot.Silent)
 		}
-		return b.sendVacancyList(c, vacancies, totalCount, b.limit)
+
+		// Send vacancies in chunks to avoid message length limit
+		const maxVacanciesPerMessage = 50
+		for i := 0; i < len(visibleVacancies); i += maxVacanciesPerMessage {
+			end := i + maxVacanciesPerMessage
+			if end > len(visibleVacancies) {
+				end = len(visibleVacancies)
+			}
+			chunk := visibleVacancies[i:end]
+
+			var message strings.Builder
+			for j, vacancy := range chunk {
+				message.WriteString(b.formatVacancyMessage(i+j, vacancy, c.Bot().Me.Username))
+			}
+
+			// Add keyboard only to the last message
+			if end == len(visibleVacancies) {
+				c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboardWithHideAll(), telebot.Silent)
+			} else {
+				c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, telebot.Silent)
+			}
+		}
+		return nil
 	}
 
 	startText := "Hello! Welcome to the bot.\n\n" + commandsText
 	// Add version if available
-	if version, err := os.ReadFile("VERSION"); err == nil {
-		startText = fmt.Sprintf("Hello! Welcome to the bot (v%s).\n\n", strings.TrimSpace(string(version))) + commandsText
+	if b.version != "" {
+		startText = fmt.Sprintf("Hello! Welcome to the bot (v%s).\n\n", b.version) + commandsText
 	}
 	return c.Send(startText, b.getCommandKeyboard(), telebot.Silent)
 }
@@ -1193,14 +1239,11 @@ func (b *Bot) handleHideAll(c telebot.Context) error {
 func (b *Bot) handleBuildVersion(c telebot.Context) error {
 	log.Printf("Command /build_version received")
 
-	// Read the VERSION_BUILD file
-	versionBytes, err := os.ReadFile("VERSION_BUILD")
-	if err != nil {
-		log.Printf("Error reading VERSION_BUILD file: %v", err)
-		return c.Send("Error reading build version", b.getCommandKeyboard(), telebot.Silent)
+	// Use embedded build version
+	version := b.buildVersion
+	if version == "" {
+		version = "unknown"
 	}
-
-	version := strings.TrimSpace(string(versionBytes))
 	return c.Send(fmt.Sprintf("Current build version: %s", version), b.getCommandKeyboard(), telebot.Silent)
 }
 

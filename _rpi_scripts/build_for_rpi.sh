@@ -13,7 +13,7 @@ echo "Updating build version →"
 echo "Building for Raspberry Pi ARM64..."
 
 # Build the Go binary for ARM64 without CGO
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o ../_bin/$PI_BINARY ../main.go
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=$(cat ../VERSION) -X main.buildVersion=$(cat ../VERSION_BUILD)" -o ../_bin/$PI_BINARY ../main.go
 
 # Check if build succeeded
 if [ $? -eq 0 ]; then
