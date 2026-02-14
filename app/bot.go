@@ -667,18 +667,39 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			return nil
 		}
 
-		// Send updated saved vacancies list
-		totalCount, err := b.getTotalVacancyCount()
+		// Send updated visible vacancies list (like /get_saved_visible)
+		visibleVacancies, err := b.getVisibleVacancies()
 		if err != nil {
-			log.Printf("Error getting total count after hide: %v", err)
+			log.Printf("Error getting visible vacancies after hide: %v", err)
 			return nil // Don't return error as the hide operation succeeded
 		}
-		vacancies, err := b.getLatestVacancies(b.limit)
-		if err != nil {
-			log.Printf("Error getting latest vacancies after hide: %v", err)
-			return nil // Don't return error as the hide operation succeeded
+
+		if len(visibleVacancies) == 0 {
+			return c.Send("No visible vacancies found.", b.getCommandKeyboardWithHideAll(), telebot.Silent)
 		}
-		return b.sendVacancyList(c, vacancies, totalCount, b.limit)
+
+		// Send vacancies in chunks to avoid message length limit
+		const maxVacanciesPerMessage = 50
+		for i := 0; i < len(visibleVacancies); i += maxVacanciesPerMessage {
+			end := i + maxVacanciesPerMessage
+			if end > len(visibleVacancies) {
+				end = len(visibleVacancies)
+			}
+			chunk := visibleVacancies[i:end]
+
+			var message strings.Builder
+			for j, vacancy := range chunk {
+				message.WriteString(b.formatVacancyMessage(i+j, vacancy, c.Bot().Me.Username))
+			}
+
+			// Add keyboard only to the last message
+			if end == len(visibleVacancies) {
+				c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboardWithHideAll(), telebot.Silent)
+			} else {
+				c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, telebot.Silent)
+			}
+		}
+		return nil
 	}
 	if strings.HasPrefix(payload, "unignore_") {
 		idStr := strings.TrimPrefix(payload, "unignore_")
@@ -716,18 +737,39 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			return nil
 		}
 
-		// Send updated saved vacancies list
-		totalCount, err := b.getTotalVacancyCount()
+		// Send updated visible vacancies list (like /get_saved_visible)
+		visibleVacancies, err := b.getVisibleVacancies()
 		if err != nil {
-			log.Printf("Error getting total count after show: %v", err)
+			log.Printf("Error getting visible vacancies after show: %v", err)
 			return nil // Don't return error as the show operation succeeded
 		}
-		vacancies, err := b.getLatestVacancies(b.limit)
-		if err != nil {
-			log.Printf("Error getting latest vacancies after show: %v", err)
-			return nil // Don't return error as the show operation succeeded
+
+		if len(visibleVacancies) == 0 {
+			return c.Send("No visible vacancies found.", b.getCommandKeyboardWithHideAll(), telebot.Silent)
 		}
-		return b.sendVacancyList(c, vacancies, totalCount, b.limit)
+
+		// Send vacancies in chunks to avoid message length limit
+		const maxVacanciesPerMessage = 50
+		for i := 0; i < len(visibleVacancies); i += maxVacanciesPerMessage {
+			end := i + maxVacanciesPerMessage
+			if end > len(visibleVacancies) {
+				end = len(visibleVacancies)
+			}
+			chunk := visibleVacancies[i:end]
+
+			var message strings.Builder
+			for j, vacancy := range chunk {
+				message.WriteString(b.formatVacancyMessage(i+j, vacancy, c.Bot().Me.Username))
+			}
+
+			// Add keyboard only to the last message
+			if end == len(visibleVacancies) {
+				c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboardWithHideAll(), telebot.Silent)
+			} else {
+				c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, telebot.Silent)
+			}
+		}
+		return nil
 	}
 
 	startText := "Hello! Welcome to the bot.\n\n" + commandsText
