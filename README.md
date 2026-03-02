@@ -3,25 +3,22 @@
 [![CI](https://github.com/PetrenkoAnton/deftech-vacancies-tgbot/actions/workflows/ci.yml/badge.svg)](https://github.com/PetrenkoAnton/deftech-vacancies-tgbot/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/go-1.24-blue)](https://golang.org/)
 
-A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) and Dwarf Engineering company. Features interactive deep links for vacancy management with automatic message cleanup.
+A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) (with database persistence) and displays current vacancies from Dwarf Engineering company (without persistence). Features interactive deep links for vacancy management with automatic message cleanup.
 
 ## Features
 
 - **Job Sources**:
-  - [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs)
-  - Dwarf Engineering ([dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers), [jobs.dou.ua/companies/dwarf-engineering/vacancies](https://jobs.dou.ua/companies/dwarf-engineering/vacancies), and [djinni.co/jobs/company-dwarf-engineering](https://djinni.co/jobs/company-dwarf-engineering/))
-  - Buntar Aerospace ([jobs.dou.ua/vacancies/buntar-aerospace](https://jobs.dou.ua/vacancies/buntar-aerospace/))
+  - [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) (with database persistence)
+  - Dwarf Engineering ([dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers) and [djinni.co/jobs/company-dwarf-engineering](https://djinni.co/jobs/company-dwarf-engineering/)) (display only, no persistence)
 
 - **Commands**:
 - `/get_saved_visible` - Get visible saved vacancies only (from database)
-- `/fetch_newest` - Fetch and post only new deftech vacancies (from first 2 pages)
+- `/fetch_newest` - Fetch and post only new deftech vacancies (from first 2 pages, saves to database)
 - `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving)
-  - `/dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies)
-  - `/buntar_aerospace` - Get Buntar Aerospace vacancies
+  - `/dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies, no saving)
   - `/get_saved_latest` - Get all saved vacancies with hide/show controls
   - `/hide_all` - Hide all visible vacancies
   - `/clear_saved` - Clear hidden vacancies from database
-  - `/build_version` - Show current build version
   - `/build_version` - Show current build version
 
 - **Automatic Posting**:
@@ -228,8 +225,7 @@ For Raspberry Pi deployment, see the [Raspberry Pi Deployment](#raspberry-pi-dep
 - `/get_saved_visible` - Show only visible (non-hidden) saved jobs from database
 - `/fetch_newest` - Fetch and post only new DefTech jobs (from first 2 pages)
 - `/fetch_latest` - Fetch and display latest DefTech jobs without saving (from first 2 pages)
-- `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + DOU.ua + djinni.co)
-- `/buntar_aerospace` - Fetch jobs from Buntar Aerospace (DOU.ua RSS)
+- `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + djinni.co)
 - `/get_saved_latest` - Fetch all saved jobs with interactive hide/show links (shows total count of all saved vacancies)
 - `/hide_all` - Hide all visible vacancies (admin only)
 - `/build_version` - Show current build version
@@ -257,6 +253,7 @@ Bot commands (`/get_saved_latest`, `/fetch_newest`, `/fetch_latest`) include int
 deftech-vacancies-tgbot/
 ├── main.go               # Application entry point
 ├── app/bot.go            # Bot logic, handlers, and database operations
+├── scripts/              # Temporary utility scripts for data management
 ├── migrations/           # Database schema migrations
 │   └── 001_initial.sql   # Initial schema
 ├── _rpi_scripts/         # Additional Raspberry Pi management scripts
