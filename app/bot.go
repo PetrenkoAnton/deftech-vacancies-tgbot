@@ -190,7 +190,7 @@ func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	btnGetSavedLatest := markup.Data("Get saved (latest)", "/get_saved_latest")
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
-	btnCompanies := markup.Data("Companies", "/get_companies")
+	btnCompanies := markup.Data("Get companies", "/get_companies")
 	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/fetch_dwarf_engineering")
 	markup.Inline(
 		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
@@ -210,7 +210,7 @@ func (b *Bot) getCommandKeyboardWithHideAll() *telebot.ReplyMarkup {
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
 	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/fetch_dwarf_engineering")
-	btnCompanies := markup.Data("Companies", "/get_companies")
+	btnCompanies := markup.Data("Get companies", "/get_companies")
 	markup.Inline(
 		markup.Row(btnHideAll),
 		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
@@ -692,7 +692,7 @@ func (b *Bot) postDeftechVacancies() error {
 	// Send with retry logic
 	maxRetries := 3
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview)
+		_, err = b.telebot.Send(chat, message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboardWithHideAll(), telebot.Silent)
 		if err == nil {
 			break
 		}
