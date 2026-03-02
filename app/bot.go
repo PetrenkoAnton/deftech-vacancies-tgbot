@@ -39,9 +39,9 @@ const (
 	// dwarfEngineeringCompany = "Dwarf Engineering"
 
 	// Action prefixes for deep links
-	hidePrefix   = "hide"
-	showPrefix = "show"
-	companyPrefix  = "company"
+	hidePrefix    = "hide"
+	showPrefix    = "show"
+	companyPrefix = "company"
 )
 
 // Vacancy represents a vacancy listing
@@ -1188,7 +1188,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		// Continue even if one source fails
 	} else {
 		peopleforceVacancies = peopleforceVacanciesRaw
-		log.Printf("DEBUG: Fetched %d vacancies from PeopleForce", len(peopleforceVacancies))
+		log.Printf("Fetched %d vacancies from PeopleForce", len(peopleforceVacancies))
 	}
 
 	// Fetch from djinni.co
@@ -1198,7 +1198,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 		// Continue even if one source fails
 	} else {
 		djinniVacancies = djinniVacanciesRaw
-		log.Printf("DEBUG: Fetched %d vacancies from djinni.co", len(djinniVacancies))
+		log.Printf("Fetched %d vacancies from djinni.co", len(djinniVacancies))
 	}
 
 	if len(peopleforceVacancies) == 0 && len(djinniVacancies) == 0 {
