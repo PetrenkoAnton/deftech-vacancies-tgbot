@@ -443,6 +443,7 @@ func (b *Bot) sendVacancyList(c telebot.Context, vacancies []Vacancy, totalCount
 		}
 
 		// Add keyboard only to the last message
+		var err error
 		if end == len(vacancies) {
 			err = c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.getCommandKeyboard(), telebot.Silent)
 		} else {
