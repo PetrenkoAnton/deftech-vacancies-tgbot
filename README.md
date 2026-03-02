@@ -12,15 +12,15 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
   - Dwarf Engineering ([dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers) and [djinni.co/jobs/company-dwarf-engineering](https://djinni.co/jobs/company-dwarf-engineering/)) (display only, no persistence)
 
 - **Commands**:
-- `/get_saved_visible` - Get visible saved vacancies only (from database)
-- `/fetch_newest` - Fetch and post only new deftech vacancies (from first 2 pages, saves to database)
-- `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving)
-  - `/fetch_dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies, no saving)
-  - `/get_saved_latest` - Get all saved vacancies with hide/show controls
-  - `/get_companies` - Show all companies with vacancy counts (company names are clickable deep links)
-  - `/hide_all` - Hide all visible vacancies
-  - `/clear_saved` - Clear hidden vacancies from database
-  - `/build_version` - Show current build version
+   - `/get_saved_visible` - Get visible saved vacancies only (from database)
+   - `/fetch_newest` - Fetch and post only new deftech vacancies (from first 2 pages, saves to database)
+   - `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving)
+   - `/fetch_dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies, no saving)
+   - `/get_saved_latest` - Get all saved vacancies with hide/show controls
+   - `/get_companies` - Show all companies with vacancy counts (company names are clickable deep links)
+   - `/hide_all` - Hide all visible vacancies
+   - `/clear_saved` - Clear hidden vacancies from database
+   - `/build_version` - Show current build version
 
 - **Automatic Posting**:
   - Configurable periodic fetching and posting of **new** deftech vacancies to the admin
@@ -74,24 +74,6 @@ COMPANIES_PER_MESSAGE=25 # Companies per message when listing companies (1-100)
 ```
 
 ## Raspberry Pi Deployment
-
-For deploying the bot on a Raspberry Pi (ARM64), follow these steps:
-
-### Prerequisites
-- Raspberry Pi with SSH access
-- SSH key pair configured for passwordless login
-- Go installed on the local machine for cross-compilation
-
-### Configuration
-Update the Raspberry Pi connection details in `.env`:
-```bash
-PI_HOST=       # e.g., "192.168.1.100"
-PI_USER=       # e.g., "pi"
-PI_KEY=        # e.g., "$HOME/.ssh/id_rsa"
-PI_ROOT_PATH=  # e.g., "/home/pi/deftech-tgbot"
-PI_LOG_FILE=   # e.g., "deftech-tgbot.log"
-PI_BINARY=     # e.g., "deftech-tgbot-rpi"
-```
 
 For deploying the bot on a Raspberry Pi (ARM64), follow these steps:
 
