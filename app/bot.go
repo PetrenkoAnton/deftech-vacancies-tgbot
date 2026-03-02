@@ -1308,8 +1308,6 @@ func (b *Bot) handleCompanies(c telebot.Context) error {
 	}
 
 	// Split companies into chunks
-	totalMessages := (len(companies) + b.companiesPerMessage - 1) / b.companiesPerMessage
-
 	for i := 0; i < len(companies); i += b.companiesPerMessage {
 		end := i + b.companiesPerMessage
 		if end > len(companies) {
@@ -1317,11 +1315,7 @@ func (b *Bot) handleCompanies(c telebot.Context) error {
 		}
 
 		var message strings.Builder
-		if totalMessages > 1 {
-			message.WriteString(fmt.Sprintf("**Companies with vacancy counts (%d-%d of %d):**\n\n", i+1, end, len(companies)))
-		} else {
-			message.WriteString("**Companies with vacancy counts:**\n\n")
-		}
+		// No header - start directly with company list
 
 		chunk := companies[i:end]
 		for j, company := range chunk {
