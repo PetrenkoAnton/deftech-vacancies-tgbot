@@ -3,7 +3,7 @@
 [![CI](https://github.com/PetrenkoAnton/deftech-vacancies-tgbot/actions/workflows/ci.yml/badge.svg)](https://github.com/PetrenkoAnton/deftech-vacancies-tgbot/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/go-1.24-blue)](https://golang.org/)
 
-A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) (with database persistence) and displays current vacancies from Dwarf Engineering company (without persistence). Features interactive deep links for vacancy management with automatic message cleanup. Built with SOLID principles and clean architecture.
+A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) (with database persistence) and displays current vacancies from Dwarf Engineering company (without persistence). Features interactive deep links for vacancy and company navigation with automatic message cleanup. Built with SOLID principles and clean architecture.
 
 ## Features
 
@@ -17,7 +17,7 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
 - `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving)
   - `/fetch_dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies, no saving)
   - `/get_saved_latest` - Get all saved vacancies with hide/show controls
-  - `/get_companies` - Show all companies with vacancy counts
+  - `/get_companies` - Show all companies with vacancy counts (company names are clickable deep links)
   - `/hide_all` - Hide all visible vacancies
   - `/clear_saved` - Clear hidden vacancies from database
   - `/build_version` - Show current build version
@@ -256,9 +256,13 @@ All bot commands require admin authorization. The bot uses centralized middlewar
 - **How to get your ID**: Send `/start` to [@userinfobot](https://t.me/userinfobot)
 - **Access Control**: Unauthorized users will receive "Sorry, you are not authorized to use this bot." messages
 
-### Hide/Show Functionality
+### Interactive Navigation
 
-Bot commands (`/get_saved_latest`, `/fetch_newest`, `/fetch_latest`) include interactive deep links to hide or show individual vacancies. Clicking the [hide] or [show] links will execute the action via `/start` command with appropriate payload and automatically delete the command message to keep the chat clean. Hidden vacancies won't appear in `/get_saved_visible` command results.
+Bot commands include interactive deep links for enhanced navigation:
+
+- **Vacancy Management**: Commands (`/get_saved_latest`, `/fetch_newest`, `/fetch_latest`) include interactive deep links to hide or show individual vacancies. Clicking the [hide] or [show] links will execute the action via `/start` command with appropriate payload and automatically delete the command message to keep the chat clean. Hidden vacancies won't appear in `/get_saved_visible` command results.
+
+- **Company Navigation**: Company names in vacancy lists and the companies list are clickable deep links that navigate directly to that company's vacancy listings, providing seamless browsing between related content.
 
 ## Project Structure
 

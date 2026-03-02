@@ -82,8 +82,8 @@ type XHRResponse struct {
 
 // MessageFormatter handles message formatting operations
 type MessageFormatter interface {
-	FormatVacancy(index int, title, url, company string, id int, hidden bool, botUsername string) string
-	FormatVacancyFromStruct(index int, vacancy Vacancy, botUsername string) string
+	FormatVacancy(index int, title, url, company string, companyID int, id int, hidden bool, botUsername string) string
+	FormatVacancyFromStruct(index int, vacancy Vacancy, companyName string, botUsername string) string
 }
 
 // VacancyRepository handles database operations for vacancies
@@ -95,13 +95,18 @@ type VacancyRepository interface {
 	GetTotalVacancyCount() (int, error)
 	SetVacancyHidden(id int, hidden bool) error
 	GetVacancyIDAndHiddenByTitle(title string) (int, bool, error)
+	GetVacancyByID(id int) (*Vacancy, error)
 	ClearHiddenVacancies() error
+	DeleteHiddenVacancies() error
+	HideAllVacancies() (int64, error)
+	GetVacanciesByCompanyID(companyID int) ([]Vacancy, error)
 }
 
 // CompanyRepository handles database operations for companies
 type CompanyRepository interface {
 	GetCompanyIDByName(name string) (int, error)
 	GetCompanyName(vacancy Vacancy) string
+	GetCompanyNameByID(id int) (string, error)
 	GetAllCompaniesWithCounts() ([]CompanyWithCount, error)
 }
 
@@ -142,6 +147,8 @@ type Bot struct {
 	vacancyFetcher      VacancyFetcher
 	keyboardBuilder     KeyboardBuilder
 	messageService      MessageService
+	httpClient          *http.Client
+	db                  *sql.DB
 	adminID             string
 	deftechURL          string
 	limit               int
@@ -200,6 +207,8 @@ func New(token string, adminID string, intervalStr string, dbName string, deftec
 		vacancyFetcher:      vacancyFetcher,
 		keyboardBuilder:     keyboardBuilder,
 		messageService:      messageService,
+		httpClient:          httpClient,
+		db:                  db,
 		adminID:             adminID,
 		deftechURL:          deftechURL,
 		limit:               limit,
@@ -229,7 +238,7 @@ func New(token string, adminID string, intervalStr string, dbName string, deftec
 // DefaultMessageFormatter implements MessageFormatter
 type DefaultMessageFormatter struct{}
 
-func (f *DefaultMessageFormatter) FormatVacancy(index int, title, url, company string, id int, hidden bool, botUsername string) string {
+func (f *DefaultMessageFormatter) FormatVacancy(index int, title, url, company string, companyID int, id int, hidden bool, botUsername string) string {
 	action := "hide"
 	prefix := hidePrefix
 	if hidden {
@@ -240,25 +249,26 @@ func (f *DefaultMessageFormatter) FormatVacancy(index int, title, url, company s
 		company = "-"
 	}
 
-	// Try to make company name clickable by looking up company ID
+	// Make company name clickable
 	companyText := company
-	// Note: This would need access to company repo, simplified for now
-	companyText = fmt.Sprintf("[%s](https://t.me/%s?start=%s_%d)", company, botUsername, companyPrefix, 0)
+	if companyID > 0 {
+		companyText = fmt.Sprintf("[%s](https://t.me/%s?start=%s_%d)", company, botUsername, companyPrefix, companyID)
+	}
 
 	return fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n",
 		index+1, title, url, companyText, action, botUsername, prefix, id)
 }
 
-func (f *DefaultMessageFormatter) FormatVacancyFromStruct(index int, vacancy Vacancy, botUsername string) string {
+func (f *DefaultMessageFormatter) FormatVacancyFromStruct(index int, vacancy Vacancy, companyName string, botUsername string) string {
 	action := "hide"
 	prefix := hidePrefix
 	if vacancy.IsHidden {
 		action = "show"
 		prefix = showPrefix
 	}
-	company := "Unknown" // This would need company repo access
+	company := companyName
 	if vacancy.CompanyID != nil {
-		company = fmt.Sprintf("[%s](https://t.me/%s?start=%s_%d)", company, botUsername, companyPrefix, *vacancy.CompanyID)
+		company = fmt.Sprintf("[%s](https://t.me/%s?start=%s_%d)", companyName, botUsername, companyPrefix, *vacancy.CompanyID)
 	}
 
 	return fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n",
@@ -355,10 +365,55 @@ func (r *SQLiteVacancyRepository) GetVacancyIDAndHiddenByTitle(title string) (in
 	return id, hidden, err
 }
 
+func (r *SQLiteVacancyRepository) GetVacancyByID(id int) (*Vacancy, error) {
+	var vacancy Vacancy
+	query := `SELECT id, title, url, company_id, is_hidden, created_at FROM vacancies WHERE id = ?`
+	err := r.db.QueryRow(query, id).Scan(&vacancy.ID, &vacancy.Title, &vacancy.URL, &vacancy.CompanyID, &vacancy.IsHidden, &vacancy.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &vacancy, nil
+}
+
 func (r *SQLiteVacancyRepository) ClearHiddenVacancies() error {
-	query := "DELETE FROM vacancies WHERE is_hidden = TRUE"
+	query := "UPDATE vacancies SET is_hidden = false WHERE is_hidden = true"
 	_, err := r.db.Exec(query)
 	return err
+}
+
+func (r *SQLiteVacancyRepository) DeleteHiddenVacancies() error {
+	query := "DELETE FROM vacancies WHERE is_hidden = true"
+	_, err := r.db.Exec(query)
+	return err
+}
+
+func (r *SQLiteVacancyRepository) HideAllVacancies() (int64, error) {
+	query := "UPDATE vacancies SET is_hidden = true WHERE is_hidden = false"
+	result, err := r.db.Exec(query)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func (r *SQLiteVacancyRepository) GetVacanciesByCompanyID(companyID int) ([]Vacancy, error) {
+	query := `SELECT id, title, url, company_id, is_hidden, created_at FROM vacancies WHERE company_id = ? ORDER BY created_at DESC`
+	rows, err := r.db.Query(query, companyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var vacancies []Vacancy
+	for rows.Next() {
+		var v Vacancy
+		err := rows.Scan(&v.ID, &v.Title, &v.URL, &v.CompanyID, &v.IsHidden, &v.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		vacancies = append(vacancies, v)
+	}
+	return vacancies, nil
 }
 
 func (r *SQLiteVacancyRepository) getOrCreateCompanyID(companyName string) (*int, error) {
@@ -416,6 +471,13 @@ func (r *SQLiteCompanyRepository) GetCompanyName(vacancy Vacancy) string {
 	return name
 }
 
+func (r *SQLiteCompanyRepository) GetCompanyNameByID(id int) (string, error) {
+	var name string
+	query := "SELECT name FROM companies WHERE id = ?"
+	err := r.db.QueryRow(query, id).Scan(&name)
+	return name, err
+}
+
 func (r *SQLiteCompanyRepository) GetAllCompaniesWithCounts() ([]CompanyWithCount, error) {
 	query := `
 		SELECT c.id, c.name, COUNT(v.id) as count,
@@ -423,7 +485,7 @@ func (r *SQLiteCompanyRepository) GetAllCompaniesWithCounts() ([]CompanyWithCoun
 		FROM companies c
 		LEFT JOIN vacancies v ON c.id = v.company_id
 		GROUP BY c.id, c.name
-		ORDER BY count DESC, c.name ASC`
+		ORDER BY c.name ASC`
 
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -583,44 +645,6 @@ func (b *Bot) adminMiddleware(next telebot.HandlerFunc) telebot.HandlerFunc {
 	}
 }
 
-// getCommandKeyboard creates an inline keyboard with command buttons
-func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
-	markup := &telebot.ReplyMarkup{}
-	btnGetSavedVisible := markup.Data("Get saved (visible)", "/get_saved_visible")
-	btnGetSavedLatest := markup.Data("Get saved (latest)", "/get_saved_latest")
-	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
-	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
-	btnCompanies := markup.Data("Get companies", "/get_companies")
-	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/fetch_dwarf_engineering")
-	markup.Inline(
-		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
-		markup.Row(btnFetchNewest, btnFetchLatest),
-		markup.Row(btnCompanies),
-		markup.Row(btnDwarf),
-	)
-	return markup
-}
-
-// getCommandKeyboardWithHideAll creates an inline keyboard with command buttons including "Hide all"
-func (b *Bot) getCommandKeyboardWithHideAll() *telebot.ReplyMarkup {
-	markup := &telebot.ReplyMarkup{}
-	btnHideAll := markup.Data("Hide all", "/hide_all")
-	btnGetSavedVisible := markup.Data("Get saved (visible)", "/get_saved_visible")
-	btnGetSavedLatest := markup.Data("Get saved (latest)", "/get_saved_latest")
-	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
-	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
-	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/fetch_dwarf_engineering")
-	btnCompanies := markup.Data("Get companies", "/get_companies")
-	markup.Inline(
-		markup.Row(btnHideAll),
-		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
-		markup.Row(btnFetchNewest, btnFetchLatest),
-		markup.Row(btnDwarf),
-		markup.Row(btnCompanies),
-	)
-	return markup
-}
-
 // runMigrations runs database migrations
 func runMigrations(db *sql.DB) error {
 	files, err := filepath.Glob("migrations/*.sql")
@@ -641,24 +665,19 @@ func runMigrations(db *sql.DB) error {
 	return nil
 }
 
-// saveVacancy saves a vacancy to the database
-func (b *Bot) saveVacancy(title, url, companyName string) error {
-	return b.vacancyRepo.SaveVacancy(title, url, companyName)
-}
-
 // vacancyExists checks if a vacancy with the given title already exists
 func (b *Bot) vacancyExists(title string) bool {
 	return b.vacancyRepo.VacancyExists(title)
 }
 
-// getOrCreateCompany gets the company ID by name, creating it if it doesn't exist
-func (b *Bot) getOrCreateCompany(name string) (int, error) {
-	return b.companyRepo.GetCompanyIDByName(name)
+// saveVacancy saves a new vacancy to the database
+func (b *Bot) saveVacancy(title, url, companyName string) error {
+	return b.vacancyRepo.SaveVacancy(title, url, companyName)
 }
 
-// getCompanyName safely gets the company name for a vacancy
-func (b *Bot) getCompanyName(vacancy Vacancy) string {
-	return b.companyRepo.GetCompanyName(vacancy)
+// getVacancyIDAndHiddenByTitle gets the vacancy ID and hidden status by title
+func (b *Bot) getVacancyIDAndHiddenByTitle(title string) (int, bool, error) {
+	return b.vacancyRepo.GetVacancyIDAndHiddenByTitle(title)
 }
 
 // getTotalVacancyCount gets the total count of vacancies
@@ -671,62 +690,31 @@ func (b *Bot) getLatestVacancies(limit int) ([]Vacancy, error) {
 	return b.vacancyRepo.GetLatestVacancies(limit)
 }
 
-// getVacancyIDAndHiddenByTitle gets the vacancy ID and hidden status by title
-func (b *Bot) getVacancyIDAndHiddenByTitle(title string) (int, bool, error) {
-	return b.vacancyRepo.GetVacancyIDAndHiddenByTitle(title)
-}
-
-// formatVacancyMessage formats a single vacancy for display
-func (b *Bot) formatVacancyMessage(index int, vacancy Vacancy, botUsername string) string {
-	return b.messageFormatter.FormatVacancyFromStruct(index, vacancy, botUsername)
-}
-
-// formatVacancyInfoMessage formats a vacancy info for display (used for fetched vacancies)
-func (b *Bot) formatVacancyInfoMessage(index int, vacancyInfo VacancyInfo, id int, hidden bool, botUsername string) string {
-	return b.messageFormatter.FormatVacancy(index, vacancyInfo.Title, vacancyInfo.URL, vacancyInfo.Company, id, hidden, botUsername)
-}
-
-// setVacancyHidden sets the hidden status of a vacancy by ID
-func (b *Bot) setVacancyHidden(id int, hidden bool) error {
-	return b.vacancyRepo.SetVacancyHidden(id, hidden)
-}
-
-// getVacancyTitleByID gets the vacancy title by ID
-func (b *Bot) getVacancyTitleByID(id int) (string, error) {
-	// This method is not used in the new architecture - deprecated
-	return "", fmt.Errorf("deprecated method")
-}
-
 // sendVacancyList sends a formatted list of vacancies
 func (b *Bot) sendVacancyList(c telebot.Context, vacancies []Vacancy, totalCount, limit int) error {
 	return b.messageService.SendVacancyList(c, vacancies, totalCount, limit)
 }
 
+// formatVacancyMessage formats a single vacancy for display
+func (b *Bot) formatVacancyMessage(index int, vacancy Vacancy, botUsername string) string {
+	companyName := b.companyRepo.GetCompanyName(vacancy)
+	return b.messageFormatter.FormatVacancyFromStruct(index, vacancy, companyName, botUsername)
+}
+
+// formatVacancyInfoMessage formats a vacancy info for display (used for fetched vacancies)
+func (b *Bot) formatVacancyInfoMessage(index int, vacancyInfo VacancyInfo, id int, hidden bool, botUsername string) string {
+	companyID := 0
+	if vacancyInfo.Company != "" {
+		if cid, err := b.companyRepo.GetCompanyIDByName(vacancyInfo.Company); err == nil {
+			companyID = cid
+		}
+	}
+	return b.messageFormatter.FormatVacancy(index, vacancyInfo.Title, vacancyInfo.URL, vacancyInfo.Company, companyID, id, hidden, botUsername)
+}
+
 // getVisibleVacancies retrieves all non-hidden vacancies from the database
 func (b *Bot) getVisibleVacancies() ([]Vacancy, error) {
 	return b.vacancyRepo.GetVisibleVacancies()
-}
-
-// getAllVacancies retrieves all vacancies from the database
-func (b *Bot) getAllVacancies() ([]Vacancy, error) {
-	// This method is not used in the new architecture - deprecated
-	return nil, fmt.Errorf("deprecated method")
-}
-
-// getVacanciesByCompanyID retrieves all vacancies for a specific company
-func (b *Bot) getVacanciesByCompanyID(companyID int) ([]Vacancy, error) {
-	// This method is not used in the new architecture - deprecated
-	return nil, fmt.Errorf("deprecated method")
-}
-
-// getCompaniesWithVacancyCounts retrieves all companies with their vacancy counts
-func (b *Bot) getCompaniesWithVacancyCounts() ([]struct {
-	ID    int
-	Name  string
-	Count int
-}, error) {
-	// This method is not used in the new architecture - deprecated
-	return nil, fmt.Errorf("deprecated method")
 }
 
 // registerHandlers registers all bot command and message handlers
@@ -847,6 +835,11 @@ func (b *Bot) postDeftechVacancies() error {
 		company := vacancyInfo.Company
 		if company == "" {
 			company = "-"
+		} else {
+			// Make company clickable
+			if companyID, err := b.companyRepo.GetCompanyIDByName(company); err == nil {
+				company = fmt.Sprintf("[%s](https://t.me/%s?start=%s_%d)", company, b.telebot.Me.Username, companyPrefix, companyID)
+			}
 		}
 		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
 	}
@@ -873,10 +866,10 @@ func (b *Bot) postDeftechVacancies() error {
 
 // handleStart handles the /start command
 func (b *Bot) handleStart(c telebot.Context) error {
-	log.Printf("Command /start received")
+	payload := strings.TrimSpace(c.Message().Payload)
+	log.Printf("Command /start received with payload: '%s'", payload)
 
 	// Check if this is a deep link command
-	payload := strings.TrimSpace(c.Message().Payload)
 
 	// Check if this is a company selection via deep link
 	if strings.HasPrefix(payload, companyPrefix+"_") {
@@ -910,20 +903,18 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		if err != nil {
 			return c.Send("Invalid hide ID", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
 		}
-		title, err := b.getVacancyTitleByID(id)
+		vacancy, err := b.vacancyRepo.GetVacancyByID(id)
 		if err != nil {
-			log.Printf("Error getting title for vacancy %d: %v", id, err)
+			log.Printf("Error getting vacancy %d: %v", id, err)
 			return c.Send("Error ignoring job", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
 		}
 		// Get vacancy URL and company for clickable link
-		var url, company string
-		err = b.db.QueryRow("SELECT v.url, COALESCE(c.name, 'Unknown') FROM vacancies v LEFT JOIN companies c ON v.company_id = c.id WHERE v.id = ?", id).Scan(&url, &company)
-		if err != nil {
-			log.Printf("Error getting URL and company for vacancy %d: %v", id, err)
-			url = "#"
-			company = "Unknown"
+		url := vacancy.URL
+		company := b.companyRepo.GetCompanyName(*vacancy)
+		if vacancy.CompanyID != nil {
+			company = fmt.Sprintf("[%s](https://t.me/%s?start=%s_%d)", company, c.Bot().Me.Username, companyPrefix, *vacancy.CompanyID)
 		}
-		err = b.setVacancyHidden(id, true)
+		err = b.vacancyRepo.SetVacancyHidden(id, true)
 		if err != nil {
 			log.Printf("Error hiding vacancy %d: %v", id, err)
 			return c.Send("Error hiding vacancy", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
@@ -934,13 +925,14 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			c.Delete()
 		}()
 		// Send status message
-		err = c.Send(fmt.Sprintf("[%s](%s) @ %s is hidden", title, url, company), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
+		err = c.Send(fmt.Sprintf("[%s](%s) @ %s is hidden", vacancy.Title, url, company), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
 		if err != nil {
 			log.Printf("Error sending hide status message: %v", err)
 			return nil
 		}
 
 		// Send updated visible vacancies list (like /get_saved_visible)
+		c.Send(fmt.Sprintf("Getting visible vacancies from db →"), telebot.ModeMarkdown, telebot.Silent)
 		visibleVacancies, err := b.getVisibleVacancies()
 		if err != nil {
 			log.Printf("Error getting visible vacancies after hide: %v", err)
@@ -948,7 +940,7 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		}
 
 		if len(visibleVacancies) == 0 {
-			return c.Send("No visible vacancies found.", b.keyboardBuilder.GetCommandKeyboardWithHideAll(), telebot.Silent)
+			return c.Send("No visible vacancies found.", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
 		}
 
 		// Send vacancies in chunks to avoid message length limit
@@ -980,20 +972,18 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		if err != nil {
 			return c.Send("Invalid show ID", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
 		}
-		title, err := b.getVacancyTitleByID(id)
+		vacancy, err := b.vacancyRepo.GetVacancyByID(id)
 		if err != nil {
-			log.Printf("Error getting title for vacancy %d: %v", id, err)
+			log.Printf("Error getting vacancy %d: %v", id, err)
 			return c.Send("Error showing job", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
 		}
 		// Get vacancy URL and company for clickable link
-		var url, company string
-		err = b.db.QueryRow("SELECT v.url, COALESCE(c.name, 'Unknown') FROM vacancies v LEFT JOIN companies c ON v.company_id = c.id WHERE v.id = ?", id).Scan(&url, &company)
-		if err != nil {
-			log.Printf("Error getting URL and company for vacancy %d: %v", id, err)
-			url = "#"
-			company = "Unknown"
+		url := vacancy.URL
+		company := b.companyRepo.GetCompanyName(*vacancy)
+		if vacancy.CompanyID != nil {
+			company = fmt.Sprintf("[%s](https://t.me/%s?start=%s_%d)", company, c.Bot().Me.Username, companyPrefix, *vacancy.CompanyID)
 		}
-		err = b.setVacancyHidden(id, false)
+		err = b.vacancyRepo.SetVacancyHidden(id, false)
 		if err != nil {
 			log.Printf("Error showing vacancy %d: %v", id, err)
 			return c.Send("Error showing job", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
@@ -1004,13 +994,14 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			c.Delete()
 		}()
 		// Send status message
-		err = c.Send(fmt.Sprintf("[%s](%s) @ %s is shown", title, url, company), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
+		err = c.Send(fmt.Sprintf("[%s](%s) @ %s is shown", vacancy.Title, url, company), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
 		if err != nil {
 			log.Printf("Error sending show status message: %v", err)
 			return nil
 		}
 
 		// Send updated visible vacancies list (like /get_saved_visible)
+		c.Send(fmt.Sprintf("Getting visible vacancies from db →"), telebot.ModeMarkdown, telebot.Silent)
 		visibleVacancies, err := b.getVisibleVacancies()
 		if err != nil {
 			log.Printf("Error getting visible vacancies after show: %v", err)
@@ -1018,7 +1009,7 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		}
 
 		if len(visibleVacancies) == 0 {
-			return c.Send("No visible vacancies found.", b.keyboardBuilder.GetCommandKeyboardWithHideAll(), telebot.Silent)
+			return c.Send("No visible vacancies found.", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
 		}
 
 		// Send vacancies in chunks to avoid message length limit
@@ -1334,7 +1325,40 @@ func (b *Bot) handleGetSavedLatest(c telebot.Context) error {
 		return c.Send("Error getting saved vacancies", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
 	}
 
-	return b.sendVacancyList(c, vacancies, totalCount, b.limit)
+	if len(vacancies) == 0 {
+		return c.Send("No saved vacancies found.", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
+	}
+
+	// Send total count
+	firstMessage := fmt.Sprintf("Total vacancies: %d\n\n", totalCount)
+	err = c.Send(firstMessage, telebot.ModeMarkdown, telebot.NoPreview, telebot.Silent)
+	if err != nil {
+		return err
+	}
+
+	// Send vacancies in chunks to avoid message length limit
+	const maxVacanciesPerMessage = 25
+	for i := 0; i < len(vacancies); i += maxVacanciesPerMessage {
+		end := i + maxVacanciesPerMessage
+		if end > len(vacancies) {
+			end = len(vacancies)
+		}
+		chunk := vacancies[i:end]
+
+		var message strings.Builder
+		for j, vacancy := range chunk {
+			message.WriteString(b.formatVacancyMessage(i+j, vacancy, c.Bot().Me.Username))
+		}
+
+		// Add keyboard only to the last message
+		if end == len(vacancies) {
+			c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
+		} else {
+			c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, telebot.Silent)
+		}
+	}
+
+	return nil
 }
 
 // handleGetDwarfEngineering handles the /fetch_dwarf_engineering command
@@ -1407,8 +1431,7 @@ func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
 // handleClearSaved handles the /clear_saved command
 func (b *Bot) handleClearSaved(c telebot.Context) error {
 	log.Printf("Command /clear_saved received")
-	query := "DELETE FROM vacancies WHERE is_hidden = 1"
-	_, err := b.db.Exec(query)
+	err := b.vacancyRepo.DeleteHiddenVacancies()
 	if err != nil {
 		log.Printf("Error clearing hidden vacancies: %v", err)
 		return c.Send("Error clearing hidden vacancies", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
@@ -1421,14 +1444,11 @@ func (b *Bot) handleHideAll(c telebot.Context) error {
 	log.Printf("Command /hide_all received")
 
 	// Hide all visible vacancies
-	query := "UPDATE vacancies SET is_hidden = 1 WHERE is_hidden = 0"
-	result, err := b.db.Exec(query)
+	rowsAffected, err := b.vacancyRepo.HideAllVacancies()
 	if err != nil {
 		log.Printf("Error hiding all vacancies: %v", err)
 		return c.Send("Error hiding vacancies", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
 	}
-
-	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		log.Printf("Error getting rows affected: %v", err)
 		return c.Send("Error hiding vacancies", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
@@ -1460,7 +1480,7 @@ func (b *Bot) handleCompanies(c telebot.Context) error {
 	// Show loading message
 	c.Send("Getting saved companies →", telebot.Silent)
 
-	companies, err := b.getCompaniesWithVacancyCounts()
+	companies, err := b.companyRepo.GetAllCompaniesWithCounts()
 	if err != nil {
 		log.Printf("Error getting companies: %v", err)
 		return c.Send("Error getting companies", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
@@ -1477,13 +1497,14 @@ func (b *Bot) handleCompanies(c telebot.Context) error {
 			end = len(companies)
 		}
 
+		chunk := companies[i:end]
+
 		var message strings.Builder
 		// No header - start directly with company list
 
-		chunk := companies[i:end]
 		for j, company := range chunk {
-			message.WriteString(fmt.Sprintf("%d. [%s](https://t.me/%s?start=%s_%d) (%d)\n",
-				i+j+1, company.Name, c.Bot().Me.Username, companyPrefix, company.ID, company.Count))
+			companyLink := fmt.Sprintf("[%s](https://t.me/%s?start=%s_%d) | %d", company.Name, c.Bot().Me.Username, companyPrefix, company.ID, company.Count)
+			message.WriteString(fmt.Sprintf("%d. %s\n", i+j+1, companyLink))
 		}
 
 		// Send with keyboard only on the last message
@@ -1503,7 +1524,7 @@ func (b *Bot) handleCompanyVacancies(c telebot.Context, companyID int) error {
 	log.Printf("Command /company_%d received", companyID)
 
 	// Get company name
-	companyName, err := b.getCompanyNameByID(companyID)
+	companyName, err := b.companyRepo.GetCompanyNameByID(companyID)
 	if err != nil {
 		log.Printf("Error getting company name for ID %d: %v", companyID, err)
 		return c.Send("Error getting company information", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
@@ -1513,7 +1534,7 @@ func (b *Bot) handleCompanyVacancies(c telebot.Context, companyID int) error {
 	c.Send(fmt.Sprintf("Getting %s vacancies →", companyName), telebot.Silent)
 
 	// Get all vacancies for this company
-	vacancies, err := b.getVacanciesByCompanyID(companyID)
+	vacancies, err := b.vacancyRepo.GetVacanciesByCompanyID(companyID)
 	if err != nil {
 		log.Printf("Error getting vacancies for company %d: %v", companyID, err)
 		return c.Send("Error getting company vacancies", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
