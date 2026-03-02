@@ -85,19 +85,20 @@ type XHRResponse struct {
 
 // Bot represents the Telegram bot instance
 type Bot struct {
-	telebot      *telebot.Bot
-	db           *sql.DB
-	httpClient   *http.Client
-	adminID      string
-	dbName       string
-	deftechURL   string
-	limit        int
-	version      string
-	buildVersion string
+	telebot             *telebot.Bot
+	db                  *sql.DB
+	httpClient          *http.Client
+	adminID             string
+	dbName              string
+	deftechURL          string
+	limit               int
+	companiesPerMessage int
+	version             string
+	buildVersion        string
 }
 
 // New creates a new bot instance
-func New(token string, adminID string, intervalStr string, dbName string, deftechURL string, limit int, version string, buildVersion string) (*Bot, error) {
+func New(token string, adminID string, intervalStr string, dbName string, deftechURL string, limit int, companiesPerMessage int, version string, buildVersion string) (*Bot, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -131,15 +132,16 @@ func New(token string, adminID string, intervalStr string, dbName string, deftec
 	}
 
 	bot := &Bot{
-		telebot:      b,
-		db:           db,
-		httpClient:   httpClient,
-		adminID:      adminID,
-		dbName:       dbName,
-		deftechURL:   deftechURL,
-		limit:        limit,
-		version:      version,
-		buildVersion: buildVersion,
+		telebot:             b,
+		db:                  db,
+		httpClient:          httpClient,
+		adminID:             adminID,
+		dbName:              dbName,
+		deftechURL:          deftechURL,
+		limit:               limit,
+		companiesPerMessage: companiesPerMessage,
+		version:             version,
+		buildVersion:        buildVersion,
 	}
 
 	// Apply admin middleware globally
@@ -1293,7 +1295,7 @@ func (b *Bot) handleCompanies(c telebot.Context) error {
 	log.Printf("Command /get_companies received")
 
 	// Show loading message
-	c.Send("Fetching companies →", telebot.Silent)
+	c.Send("Getting saved companies →", telebot.Silent)
 
 	companies, err := b.getCompaniesWithVacancyCounts()
 	if err != nil {
@@ -1305,12 +1307,11 @@ func (b *Bot) handleCompanies(c telebot.Context) error {
 		return c.Send("No companies found.", b.getCommandKeyboard(), telebot.Silent)
 	}
 
-	// Split companies into chunks of 25
-	const companiesPerMessage = 25
-	totalMessages := (len(companies) + companiesPerMessage - 1) / companiesPerMessage
+	// Split companies into chunks
+	totalMessages := (len(companies) + b.companiesPerMessage - 1) / b.companiesPerMessage
 
-	for i := 0; i < len(companies); i += companiesPerMessage {
-		end := i + companiesPerMessage
+	for i := 0; i < len(companies); i += b.companiesPerMessage {
+		end := i + b.companiesPerMessage
 		if end > len(companies) {
 			end = len(companies)
 		}
