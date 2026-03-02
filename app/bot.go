@@ -1329,7 +1329,13 @@ func (b *Bot) handleCompanies(c telebot.Context) error {
 				i+j+1, company.Name, c.Bot().Me.Username, companyPrefix, company.ID, company.Count))
 		}
 
-		c.Send(message.String(), telebot.ModeMarkdown, telebot.Silent)
+		// Send with keyboard only on the last message
+		isLastMessage := i+b.companiesPerMessage >= len(companies)
+		if isLastMessage {
+			c.Send(message.String(), telebot.ModeMarkdown, b.getCommandKeyboard(), telebot.Silent)
+		} else {
+			c.Send(message.String(), telebot.ModeMarkdown, telebot.Silent)
+		}
 	}
 
 	return nil
