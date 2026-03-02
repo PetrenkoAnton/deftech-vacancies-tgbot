@@ -30,7 +30,7 @@ const (
 		"/fetch_newest - Fetch newest vacancies from deftech.dou.ua\n" +
 		"/fetch_latest - Fetch latest vacancies from deftech.dou.ua\n\n" +
 		"/fetch_dwarf_engineering - Fetch Dwarf Engineering vacancies\n\n" +
-		"/companies - Show all companies with vacancy counts\n\n" +
+		"/get_companies - Show all companies with vacancy counts\n\n" +
 		"/hide_all - Hide all visible vacancies\n\n" +
 		"/clear_saved - Clear hidden vacancies\n\n" +
 		"/build_version - Show current build version"
@@ -188,7 +188,7 @@ func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	btnGetSavedLatest := markup.Data("Get saved (latest)", "/get_saved_latest")
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
-	btnCompanies := markup.Data("Companies", "/companies")
+	btnCompanies := markup.Data("Companies", "/get_companies")
 	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/fetch_dwarf_engineering")
 	markup.Inline(
 		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
@@ -208,7 +208,7 @@ func (b *Bot) getCommandKeyboardWithHideAll() *telebot.ReplyMarkup {
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
 	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/fetch_dwarf_engineering")
-	btnCompanies := markup.Data("Companies", "/companies")
+	btnCompanies := markup.Data("Companies", "/get_companies")
 	markup.Inline(
 		markup.Row(btnHideAll),
 		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
@@ -1288,9 +1288,9 @@ func (b *Bot) handleBuildVersion(c telebot.Context) error {
 	return c.Send(fmt.Sprintf("Current build version: %s", version), b.getCommandKeyboard(), telebot.Silent)
 }
 
-// handleCompanies handles the /companies command
+// handleCompanies handles the /get_companies command
 func (b *Bot) handleCompanies(c telebot.Context) error {
-	log.Printf("Command /companies received")
+	log.Printf("Command /get_companies received")
 
 	companies, err := b.getCompaniesWithVacancyCounts()
 	if err != nil {
@@ -1689,7 +1689,7 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 		err := b.handleBuildVersion(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
-	case "/companies":
+	case "/get_companies":
 		err := b.handleCompanies(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
