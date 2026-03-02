@@ -1292,6 +1292,9 @@ func (b *Bot) handleBuildVersion(c telebot.Context) error {
 func (b *Bot) handleCompanies(c telebot.Context) error {
 	log.Printf("Command /get_companies received")
 
+	// Show loading message
+	c.Send("Fetching companies →", telebot.Silent)
+
 	companies, err := b.getCompaniesWithVacancyCounts()
 	if err != nil {
 		log.Printf("Error getting companies: %v", err)
@@ -1302,14 +1305,33 @@ func (b *Bot) handleCompanies(c telebot.Context) error {
 		return c.Send("No companies found.", b.getCommandKeyboard(), telebot.Silent)
 	}
 
-	var message strings.Builder
-	message.WriteString("**Companies with vacancy counts:**\n\n")
-	for i, company := range companies {
-		message.WriteString(fmt.Sprintf("%d. [%s](https://t.me/%s?start=%s_%d) (%d)\n",
-			i+1, company.Name, c.Bot().Me.Username, companyPrefix, company.ID, company.Count))
+	// Split companies into chunks of 25
+	const companiesPerMessage = 25
+	totalMessages := (len(companies) + companiesPerMessage - 1) / companiesPerMessage
+
+	for i := 0; i < len(companies); i += companiesPerMessage {
+		end := i + companiesPerMessage
+		if end > len(companies) {
+			end = len(companies)
+		}
+
+		var message strings.Builder
+		if totalMessages > 1 {
+			message.WriteString(fmt.Sprintf("**Companies with vacancy counts (%d-%d of %d):**\n\n", i+1, end, len(companies)))
+		} else {
+			message.WriteString("**Companies with vacancy counts:**\n\n")
+		}
+
+		chunk := companies[i:end]
+		for j, company := range chunk {
+			message.WriteString(fmt.Sprintf("%d. [%s](https://t.me/%s?start=%s_%d) (%d)\n",
+				i+j+1, company.Name, c.Bot().Me.Username, companyPrefix, company.ID, company.Count))
+		}
+
+		c.Send(message.String(), telebot.ModeMarkdown, telebot.Silent)
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdown, b.getCommandKeyboard(), telebot.Silent)
+	return nil
 }
 
 // handleCompanyVacancies handles showing vacancies for a specific company
