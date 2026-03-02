@@ -17,6 +17,7 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
 - `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving)
   - `/fetch_dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies, no saving)
   - `/get_saved_latest` - Get all saved vacancies with hide/show controls
+  - `/get_companies` - Show all companies with vacancy counts
   - `/hide_all` - Hide all visible vacancies
   - `/clear_saved` - Clear hidden vacancies from database
   - `/build_version` - Show current build version
@@ -29,6 +30,7 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
 
 - **Message Batching**:
   - Long vacancy lists are automatically split into messages containing up to 50 vacancies each
+  - Company lists are split into configurable chunks (default 25 companies per message)
   - Helps manage Telegram's message length limits and improves readability
 
 - **Security**:
@@ -61,6 +63,7 @@ INTERVAL=1  # Posting interval in minutes
 DEFTECH_URL="https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2" # Deftech vacancies URL
 DB_NAME="deftech-tgbot.db"
 LIMIT=50    # Max vacancies to display in saved lists (20-200), lists are batched into messages of up to 50 vacancies each
+COMPANIES_PER_MESSAGE=25 # Companies per message when listing companies (1-100)
 ```
 
 ## Raspberry Pi Deployment
@@ -227,6 +230,7 @@ For Raspberry Pi deployment, see the [Raspberry Pi Deployment](#raspberry-pi-dep
 - `/fetch_latest` - Fetch and display latest DefTech jobs without saving (from first 2 pages)
 - `/fetch_dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + djinni.co)
 - `/get_saved_latest` - Fetch all saved jobs with interactive hide/show links (shows total count of all saved vacancies)
+- `/get_companies` - Show all companies with vacancy counts
 - `/hide_all` - Hide all visible vacancies (admin only)
 - `/build_version` - Show current build version
 - `/clear_saved` - Clear hidden jobs from database (admin only)
