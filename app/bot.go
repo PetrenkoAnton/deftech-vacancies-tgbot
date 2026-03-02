@@ -188,13 +188,13 @@ func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	btnGetSavedLatest := markup.Data("Get saved (latest)", "/get_saved_latest")
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
-	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/dwarf_engineering")
 	btnCompanies := markup.Data("Companies", "/companies")
+	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/dwarf_engineering")
 	markup.Inline(
 		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
 		markup.Row(btnFetchNewest, btnFetchLatest),
-		markup.Row(btnDwarf),
 		markup.Row(btnCompanies),
+		markup.Row(btnDwarf),
 	)
 	return markup
 }
