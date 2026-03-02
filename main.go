@@ -65,6 +65,19 @@ func main() {
 		log.Fatalf("LIMIT must be between 20 and 200, got: %d", limit)
 	}
 
+	// Get companies per message from environment variable (optional, defaults to 25)
+	companiesPerMessageStr := os.Getenv("COMPANIES_PER_MESSAGE")
+	companiesPerMessage := 25 // default value
+	if companiesPerMessageStr != "" {
+		companiesPerMessage, err = strconv.Atoi(companiesPerMessageStr)
+		if err != nil {
+			log.Fatalf("Invalid COMPANIES_PER_MESSAGE value: %v", err)
+		}
+		if companiesPerMessage < 1 || companiesPerMessage > 100 {
+			log.Fatalf("COMPANIES_PER_MESSAGE must be between 1 and 100, got: %d", companiesPerMessage)
+		}
+	}
+
 	// Initialize bot
 	// Use embedded build version for logging
 	logVersion := buildVersion
@@ -72,7 +85,7 @@ func main() {
 		logVersion = "unknown"
 	}
 	log.Printf("Initializing Telegram bot (build: %s) →", logVersion)
-	telegramBot, err := bot.New(botToken, adminID, intervalStr, dbName, deftechURL, limit, version, buildVersion)
+	telegramBot, err := bot.New(botToken, adminID, intervalStr, dbName, deftechURL, limit, companiesPerMessage, version, buildVersion)
 	if err != nil {
 		log.Fatalf("Failed to initialize bot: %v", err)
 	}
