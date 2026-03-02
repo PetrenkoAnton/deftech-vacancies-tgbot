@@ -3,7 +3,7 @@
 [![CI](https://github.com/PetrenkoAnton/deftech-vacancies-tgbot/actions/workflows/ci.yml/badge.svg)](https://github.com/PetrenkoAnton/deftech-vacancies-tgbot/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/go-1.24-blue)](https://golang.org/)
 
-A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) (with database persistence) and displays current vacancies from Dwarf Engineering company (without persistence). Features interactive deep links for vacancy management with automatic message cleanup.
+A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) (with database persistence) and displays current vacancies from Dwarf Engineering company (without persistence). Features interactive deep links for vacancy and company navigation with automatic message cleanup. Built with SOLID principles and clean architecture.
 
 ## Features
 
@@ -17,7 +17,7 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
 - `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving)
   - `/fetch_dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies, no saving)
   - `/get_saved_latest` - Get all saved vacancies with hide/show controls
-  - `/get_companies` - Show all companies with vacancy counts
+  - `/get_companies` - Show all companies with vacancy counts (company names are clickable deep links)
   - `/hide_all` - Hide all visible vacancies
   - `/clear_saved` - Clear hidden vacancies from database
   - `/build_version` - Show current build version
@@ -27,6 +27,7 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
   - Only posts when new vacancies are discovered; logs otherwise
   - Set `INTERVAL` in minutes to enable automatic vacancy updates
   - Fetches from the first 2 pages of job listings for comprehensive coverage
+  - **New**: Automatic postings now include common action buttons for immediate interaction
 
 - **Message Batching**:
   - Long vacancy lists are automatically split into messages containing up to 50 vacancies each
@@ -37,6 +38,12 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
   - All bot commands require admin authorization
   - Centralized middleware checks `ADMIN_ID` for all requests
   - Unauthorized users receive access denied messages
+
+- **Architecture**:
+  - Built with SOLID principles and clean architecture
+  - Dependency injection for testability and maintainability
+  - Interface-based design for extensibility
+  - Separated concerns into focused services
 
 ## Prerequisites
 
@@ -212,7 +219,7 @@ go build -o _bin/deftech-tgbot .
 ./_bin/deftech-tgbot
 ```
 
-Or use the convenience script:
+Or use the convenience script (auto-builds to `_bin/` and tests briefly):
 ```bash
 ./build_and_run.sh
 ```
@@ -226,7 +233,7 @@ For Raspberry Pi deployment, see the [Raspberry Pi Deployment](#raspberry-pi-dep
 - `/start` - Welcome message and command overview
 - `/help` - Show available commands
 - `/get_saved_visible` - Show only visible (non-hidden) saved jobs from database
-- `/fetch_newest` - Fetch and post only new DefTech jobs (from first 2 pages)
+- `/fetch_newest` - Fetch and post only new DefTech jobs (from first 2 pages) **with common action buttons**
 - `/fetch_latest` - Fetch and display latest DefTech jobs without saving (from first 2 pages)
 - `/fetch_dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + djinni.co)
 - `/get_saved_latest` - Fetch all saved jobs with interactive hide/show links (shows total count of all saved vacancies)
@@ -237,7 +244,9 @@ For Raspberry Pi deployment, see the [Raspberry Pi Deployment](#raspberry-pi-dep
 
 ### Automatic Posting
 
-If `INTERVAL` is set in the `.env` file (in minutes), the bot will automatically fetch deftech vacancies at the specified interval. It will only post to the admin when **new vacancies are discovered**. If no new vacancies are found, it will simply log the check without posting anything. The `/get_saved_visible` command can still be used for manual fetching of all visible jobs.
+If `INTERVAL` is set in the `.env` file (in minutes), the bot will automatically fetch deftech vacancies at the specified interval. It will only post to the admin when **new vacancies are discovered**. If no new vacancies are found, it will simply log the check without posting anything. 
+
+**New Feature**: Automatic postings now include common action buttons (Hide all, Get saved, etc.) for immediate interaction without needing to send additional commands. The `/get_saved_visible` command can still be used for manual fetching of all visible jobs.
 
 ### Admin Authorization
 
@@ -247,20 +256,38 @@ All bot commands require admin authorization. The bot uses centralized middlewar
 - **How to get your ID**: Send `/start` to [@userinfobot](https://t.me/userinfobot)
 - **Access Control**: Unauthorized users will receive "Sorry, you are not authorized to use this bot." messages
 
-### Hide/Show Functionality
+### Interactive Navigation
 
-Bot commands (`/get_saved_latest`, `/fetch_newest`, `/fetch_latest`) include interactive deep links to hide or show individual vacancies. Clicking the [hide] or [show] links will execute the action via `/start` command with appropriate payload and automatically delete the command message to keep the chat clean. Hidden vacancies won't appear in `/get_saved_visible` command results.
+Bot commands include interactive deep links for enhanced navigation:
+
+- **Vacancy Management**: Commands (`/get_saved_latest`, `/fetch_newest`, `/fetch_latest`) include interactive deep links to hide or show individual vacancies. Clicking the [hide] or [show] links will execute the action via `/start` command with appropriate payload and automatically delete the command message to keep the chat clean. Hidden vacancies won't appear in `/get_saved_visible` command results.
+
+- **Company Navigation**: Company names in vacancy lists and the companies list are clickable deep links that navigate directly to that company's vacancy listings, providing seamless browsing between related content.
 
 ## Project Structure
 
 ```
 deftech-vacancies-tgbot/
-├── main.go               # Application entry point
-├── app/bot.go            # Bot logic, handlers, and database operations
+├── main.go               # Application entry point with environment loading
+├── app/bot.go            # Bot logic with SOLID architecture (interfaces & dependency injection)
+│   ├── Interfaces:       # Clean architecture with dependency inversion
+│   │   ├── MessageFormatter    - Message formatting operations
+│   │   ├── VacancyRepository   - Database operations for vacancies
+│   │   ├── CompanyRepository   - Database operations for companies
+│   │   ├── VacancyFetcher      - HTTP operations for fetching vacancies
+│   │   ├── KeyboardBuilder     - UI keyboard creation
+│   │   └── MessageService      - Message operations and sending
+│   └── Services:         # Concrete implementations
+│       ├── DefaultMessageFormatter
+│       ├── SQLiteVacancyRepository
+│       ├── SQLiteCompanyRepository
+│       ├── DefaultVacancyFetcher
+│       ├── DefaultKeyboardBuilder
+│       └── DefaultMessageService
 ├── scripts/              # Temporary utility scripts for data management
 ├── migrations/           # Database schema migrations
-│   └── 001_initial.sql   # Initial schema
-├── _rpi_scripts/         # Additional Raspberry Pi management scripts
+│   └── 001_initial.sql   # Initial schema with foreign key constraints
+├── _rpi_scripts/         # Raspberry Pi management scripts
 │   ├── build_for_rpi.sh
 │   ├── copy_bin_to_rpi.sh
 │   ├── copy_db_from_rpi.sh
@@ -270,7 +297,7 @@ deftech-vacancies-tgbot/
 │   ├── stop_bot_on_rpi.sh
 │   ├── update_rpi.sh
 │   └── view_logs_rpi.sh
-├── build_and_run.sh      # Build and run script
+├── build_and_run.sh      # Build and run script (auto-builds to _bin/)
 ├── logrotate.conf        # Logrotate configuration for RPi logs
 ├── .env                  # Dev environment configuration
 ├── .prod.env             # Production environment configuration
@@ -279,5 +306,5 @@ deftech-vacancies-tgbot/
 ├── go.mod                # Go module dependencies
 ├── go.sum                # Go module checksums
 ├── deftech-tgbot.db      # SQLite database (auto-created, configurable via DB_NAME)
-└── _bin/                 # Compiled binaries
+└── _bin/                 # Compiled binaries (auto-build location)
 ```
