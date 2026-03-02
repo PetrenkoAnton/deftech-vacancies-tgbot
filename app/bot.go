@@ -39,8 +39,8 @@ const (
 	// dwarfEngineeringCompany = "Dwarf Engineering"
 
 	// Action prefixes for deep links
-	ignorePrefix   = "ignore"
-	unignorePrefix = "unignore"
+	hidePrefix   = "hide"
+	showPrefix = "show"
 	companyPrefix  = "company"
 )
 
@@ -354,10 +354,10 @@ func (b *Bot) getVacancyIDAndHiddenByTitle(title string) (int, bool, error) {
 // formatVacancyMessage formats a single vacancy for display
 func (b *Bot) formatVacancyMessage(index int, vacancy Vacancy, botUsername string) string {
 	action := "hide"
-	prefix := ignorePrefix
+	prefix := hidePrefix
 	if vacancy.IsHidden {
 		action = "show"
-		prefix = unignorePrefix
+		prefix = showPrefix
 	}
 	company := b.getCompanyName(vacancy)
 
@@ -374,10 +374,10 @@ func (b *Bot) formatVacancyMessage(index int, vacancy Vacancy, botUsername strin
 // formatVacancyInfoMessage formats a vacancy info for display (used for fetched vacancies)
 func (b *Bot) formatVacancyInfoMessage(index int, vacancyInfo VacancyInfo, id int, hidden bool, botUsername string) string {
 	action := "hide"
-	prefix := ignorePrefix
+	prefix := hidePrefix
 	if hidden {
 		action = "show"
-		prefix = unignorePrefix
+		prefix = showPrefix
 	}
 	company := vacancyInfo.Company
 	if company == "" {
@@ -674,10 +674,10 @@ func (b *Bot) postDeftechVacancies() error {
 			continue
 		}
 		action := "hide"
-		prefix := "ignore"
+		prefix := "hide"
 		if hidden {
 			action = "show"
-			prefix = "unignore"
+			prefix = "show"
 		}
 		company := vacancyInfo.Company
 		if company == "" {
@@ -738,12 +738,12 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		return b.handleCompanies(c)
 	}
 
-	// Check if this is an ignore/unignore command via deep link
-	if strings.HasPrefix(payload, "ignore_") {
-		idStr := strings.TrimPrefix(payload, "ignore_")
+	// Check if this is a hide/show command via deep link
+	if strings.HasPrefix(payload, "hide_") {
+		idStr := strings.TrimPrefix(payload, "hide_")
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			return c.Send("Invalid ignore ID", b.getCommandKeyboard(), telebot.Silent)
+			return c.Send("Invalid hide ID", b.getCommandKeyboard(), telebot.Silent)
 		}
 		title, err := b.getVacancyTitleByID(id)
 		if err != nil {
@@ -809,11 +809,11 @@ func (b *Bot) handleStart(c telebot.Context) error {
 		}
 		return nil
 	}
-	if strings.HasPrefix(payload, "unignore_") {
-		idStr := strings.TrimPrefix(payload, "unignore_")
+	if strings.HasPrefix(payload, "show_") {
+		idStr := strings.TrimPrefix(payload, "show_")
 		id, err := strconv.Atoi(idStr)
 		if err != nil {
-			return c.Send("Invalid unignore ID", b.getCommandKeyboard(), telebot.Silent)
+			return c.Send("Invalid show ID", b.getCommandKeyboard(), telebot.Silent)
 		}
 		title, err := b.getVacancyTitleByID(id)
 		if err != nil {
