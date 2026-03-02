@@ -29,7 +29,7 @@ const (
 		"/get_saved_visible - Get visible saved vacancies\n\n" +
 		"/fetch_newest - Fetch newest vacancies from deftech.dou.ua\n" +
 		"/fetch_latest - Fetch latest vacancies from deftech.dou.ua\n\n" +
-		"/dwarf_engineering - Fetch Dwarf Engineering vacancies\n\n" +
+		"/fetch_dwarf_engineering - Fetch Dwarf Engineering vacancies\n\n" +
 		"/companies - Show all companies with vacancy counts\n\n" +
 		"/hide_all - Hide all visible vacancies\n\n" +
 		"/clear_saved - Clear hidden vacancies\n\n" +
@@ -189,7 +189,7 @@ func (b *Bot) getCommandKeyboard() *telebot.ReplyMarkup {
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
 	btnCompanies := markup.Data("Companies", "/companies")
-	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/dwarf_engineering")
+	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/fetch_dwarf_engineering")
 	markup.Inline(
 		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
 		markup.Row(btnFetchNewest, btnFetchLatest),
@@ -207,7 +207,7 @@ func (b *Bot) getCommandKeyboardWithHideAll() *telebot.ReplyMarkup {
 	btnGetSavedLatest := markup.Data("Get saved (latest)", "/get_saved_latest")
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
-	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/dwarf_engineering")
+	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/fetch_dwarf_engineering")
 	btnCompanies := markup.Data("Companies", "/companies")
 	markup.Inline(
 		markup.Row(btnHideAll),
@@ -573,7 +573,7 @@ func (b *Bot) registerHandlers() {
 	b.telebot.Handle("/help", b.handleHelp)
 
 	// Get Dwarf Engineering vacancies command handler
-	b.telebot.Handle("/dwarf_engineering", b.handleGetDwarfEngineering)
+	b.telebot.Handle("/fetch_dwarf_engineering", b.handleGetDwarfEngineering)
 
 	// Get list deftech command handler
 	b.telebot.Handle("/fetch_newest", b.handleFetchNewest)
@@ -1172,9 +1172,9 @@ func (b *Bot) handleGetSavedLatest(c telebot.Context) error {
 	return b.sendVacancyList(c, vacancies, totalCount, b.limit)
 }
 
-// handleGetDwarfEngineering handles the /dwarf_engineering command
+// handleGetDwarfEngineering handles the /fetch_dwarf_engineering command
 func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
-	log.Printf("Command /dwarf_engineering received")
+	log.Printf("Command /fetch_dwarf_engineering received")
 	// Show loading message
 	c.Send("Fetching Dwarf Engineering vacancies →", telebot.Silent)
 
@@ -1673,7 +1673,7 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 		err := b.handleFetchLatest(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
-	case "/dwarf_engineering":
+	case "/fetch_dwarf_engineering":
 		err := b.handleGetDwarfEngineering(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err

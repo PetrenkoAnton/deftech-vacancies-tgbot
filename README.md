@@ -15,7 +15,7 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
 - `/get_saved_visible` - Get visible saved vacancies only (from database)
 - `/fetch_newest` - Fetch and post only new deftech vacancies (from first 2 pages, saves to database)
 - `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving)
-  - `/dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies, no saving)
+  - `/fetch_dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies, no saving)
   - `/get_saved_latest` - Get all saved vacancies with hide/show controls
   - `/hide_all` - Hide all visible vacancies
   - `/clear_saved` - Clear hidden vacancies from database
@@ -225,7 +225,7 @@ For Raspberry Pi deployment, see the [Raspberry Pi Deployment](#raspberry-pi-dep
 - `/get_saved_visible` - Show only visible (non-hidden) saved jobs from database
 - `/fetch_newest` - Fetch and post only new DefTech jobs (from first 2 pages)
 - `/fetch_latest` - Fetch and display latest DefTech jobs without saving (from first 2 pages)
-- `/dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + djinni.co)
+- `/fetch_dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + djinni.co)
 - `/get_saved_latest` - Fetch all saved jobs with interactive hide/show links (shows total count of all saved vacancies)
 - `/hide_all` - Hide all visible vacancies (admin only)
 - `/build_version` - Show current build version
