@@ -13,7 +13,7 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
 - **Commands**:
    - `/get_saved_visible` - Get visible saved vacancies only (from database)
    - `/fetch_newest` - Fetch and post only new deftech vacancies (from first 2 pages, saves to database)
-   - `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving)
+   - `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving; limited by `LIMIT`, chunked by `COMPANIES_PER_MESSAGE`)
    - `/get_saved_latest` - Get all saved vacancies with hide/show controls
    - `/get_companies` - Show all companies with vacancy counts (company names are clickable deep links)
    - `/hide_all` - Hide all visible vacancies
@@ -29,8 +29,8 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
   - **New**: Automatic postings now include common action buttons for immediate interaction
 
 - **Message Batching**:
-  - Long vacancy lists are automatically split into messages containing up to 50 vacancies each
-  - Company lists are split into configurable chunks (default 25 companies per message)
+  - Vacancy lists (`/fetch_latest`, `/get_saved_latest`) are split into messages of `COMPANIES_PER_MESSAGE` items
+  - Company lists are split into the same configurable chunk size (default 25)
   - Helps manage Telegram's message length limits and improves readability
 
 - **Security**:
@@ -69,8 +69,8 @@ INTERVAL=1  # Posting interval in minutes
 PUBLIC_CHAT_ID=  # Telegram public/channel chat ID for auto-posting new vacancies (e.g. -1001234567890)
 DEFTECH_URL="https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2" # Deftech vacancies URL
 DB_NAME="deftech-tgbot.db"
-LIMIT=50    # Max vacancies to display in saved lists (20-200), lists are batched into messages of up to 50 vacancies each
-COMPANIES_PER_MESSAGE=25 # Companies per message when listing companies (1-100)
+LIMIT=50    # Max vacancies to display in /fetch_latest and saved lists (20-200)
+COMPANIES_PER_MESSAGE=25 # Items per message for vacancy and company lists (1-100)
 ```
 
 ## Raspberry Pi Deployment
@@ -216,7 +216,7 @@ For Raspberry Pi deployment, see the [Raspberry Pi Deployment](#raspberry-pi-dep
 - `/help` - Show available commands
 - `/get_saved_visible` - Show only visible (non-hidden) saved jobs from database
 - `/fetch_newest` - Fetch and post only new DefTech jobs (from first 2 pages) **with common action buttons**
-- `/fetch_latest` - Fetch and display latest DefTech jobs without saving (from first 2 pages)
+- `/fetch_latest` - Fetch and display latest DefTech jobs without saving (from first 2 pages, limited by `LIMIT`, chunked by `COMPANIES_PER_MESSAGE`)
 - `/get_saved_latest` - Fetch all saved jobs with interactive hide/show links (shows total count of all saved vacancies)
 - `/get_companies` - Show all companies with vacancy counts
 - `/hide_all` - Hide all visible vacancies (admin only)
@@ -244,6 +244,8 @@ Bot commands include interactive deep links for enhanced navigation:
 - **Vacancy Management**: Commands (`/get_saved_latest`, `/fetch_newest`, `/fetch_latest`) include interactive deep links to hide or show individual vacancies. Clicking the [hide] or [show] links will execute the action via `/start` command with appropriate payload and automatically delete the command message to keep the chat clean. Hidden vacancies won't appear in `/get_saved_visible` command results.
 
 - **Company Navigation**: Company names in vacancy lists and the companies list are clickable deep links that navigate directly to that company's vacancy listings, providing seamless browsing between related content.
+
+- **Markdown Safety**: Square brackets in vacancy titles are replaced with parentheses so Telegram Markdown links stay intact.
 
 ## Project Structure
 

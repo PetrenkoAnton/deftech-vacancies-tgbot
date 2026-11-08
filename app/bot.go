@@ -1622,9 +1622,9 @@ func extractText(n *html.Node) string {
 }
 
 func escapeMarkdownLinkText(text string) string {
-	text = strings.ReplaceAll(text, `\`, `\\`)
-	text = strings.ReplaceAll(text, "[", `\[`)
-	text = strings.ReplaceAll(text, "]", `\]`)
+	// Telegram Markdown cannot escape ] inside [text](url), so replace brackets.
+	text = strings.ReplaceAll(text, "[", "(")
+	text = strings.ReplaceAll(text, "]", ")")
 	return text
 }
 
