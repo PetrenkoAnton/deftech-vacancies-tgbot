@@ -58,9 +58,10 @@ type Company struct {
 
 // VacancyInfo represents vacancy information with company
 type VacancyInfo struct {
-	Title   string
-	Company string
-	URL     string
+	Title      string
+	Company    string
+	CompanyURL string
+	URL        string
 }
 
 // XHRResponse represents the response from xhr-load endpoint
@@ -799,7 +800,7 @@ func (b *Bot) postDeftechVacancies() error {
 
 	// Format the message with only new vacancies
 	var message strings.Builder
-	message.WriteString("**New vacancies:**\n\n")
+	message.WriteString(newVacanciesHeading(len(newVacancyInfos)))
 
 	for i, vacancyInfo := range newVacancyInfos {
 		id, hidden, err := b.getVacancyIDAndHiddenByTitle(vacancyInfo.Title)
@@ -850,19 +851,50 @@ func (b *Bot) postDeftechVacancies() error {
 	return nil
 }
 
+func newVacanciesHeading(count int) string {
+	if count == 1 {
+		return "**New vacancy:**\n\n"
+	}
+	return "**New vacancies:**\n\n"
+}
+
 func (b *Bot) formatPublicVacanciesMessage(vacancies []VacancyInfo) string {
 	var message strings.Builder
-	message.WriteString("**New vacancies:**\n\n")
+	message.WriteString(newVacanciesHeading(len(vacancies)))
 
 	for i, vacancyInfo := range vacancies {
-		company := vacancyInfo.Company
-		if company == "" {
-			company = "-"
-		}
+		company := formatCompanyForPublic(vacancyInfo.Company, vacancyInfo.CompanyURL)
 		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s\n", i+1, escapeMarkdownLinkText(vacancyInfo.Title), vacancyInfo.URL, company))
 	}
 
 	return message.String()
+}
+
+func formatCompanyForPublic(company, companyURL string) string {
+	if company == "" {
+		return "-"
+	}
+	if companyURL == "" {
+		return escapeMarkdownLinkText(company)
+	}
+	return fmt.Sprintf("[%s](%s)", escapeMarkdownLinkText(company), companyURL)
+}
+
+func normalizeCompanyURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	switch {
+	case strings.HasPrefix(raw, "http://"), strings.HasPrefix(raw, "https://"):
+		return raw
+	case strings.HasPrefix(raw, "//"):
+		return "https:" + raw
+	case strings.HasPrefix(raw, "/"):
+		return "https://jobs.dou.ua" + raw
+	default:
+		return "https://" + raw
+	}
 }
 
 func (b *Bot) postNewVacanciesToPublic(vacancies []VacancyInfo) error {
@@ -1167,7 +1199,7 @@ func (b *Bot) handleFetchNewest(c telebot.Context) error {
 
 	// Format the message with only new vacancies
 	var message strings.Builder
-	message.WriteString("**New vacancies:**\n\n")
+	message.WriteString(newVacanciesHeading(len(newVacancyInfos)))
 
 	for i, vacancyInfo := range newVacancyInfos {
 		id, hidden, err := b.getVacancyIDAndHiddenByTitle(vacancyInfo.Title)
@@ -1578,6 +1610,7 @@ func findJobTitlesDeftech(n *html.Node) []VacancyInfo {
 						parts := strings.Split(nextLink.url, "/vacancies/")
 						if len(parts) > 1 && (parts[1] == "" || strings.HasPrefix(parts[1], "?")) {
 							vacancyInfo.Company = nextLink.text
+							vacancyInfo.CompanyURL = normalizeCompanyURL(nextLink.url)
 							break
 						}
 					}
