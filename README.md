@@ -24,6 +24,7 @@ A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](htt
 
 - **Automatic Posting**:
   - Configurable periodic fetching and posting of **new** deftech vacancies to the admin
+  - Also posts new vacancies to a Telegram public/channel when `PUBLIC_CHAT_ID` is set
   - Only posts when new vacancies are discovered; logs otherwise
   - Set `INTERVAL` in minutes to enable automatic vacancy updates
   - Fetches from the first 2 pages of job listings for comprehensive coverage
@@ -67,6 +68,7 @@ cp .env.example .env
 BOT_TOKEN=  # From @BotFather
 ADMIN_ID=   # Your Telegram user ID (get from @userinfobot)
 INTERVAL=1  # Posting interval in minutes
+PUBLIC_CHAT_ID=  # Telegram public/channel chat ID for auto-posting new vacancies (e.g. -1001234567890)
 DEFTECH_URL="https://deftech.dou.ua/jobs/?city=%D0%9A%D0%B8%D1%97%D0%B2" # Deftech vacancies URL
 DB_NAME="deftech-tgbot.db"
 LIMIT=50    # Max vacancies to display in saved lists (20-200), lists are batched into messages of up to 50 vacancies each
@@ -226,7 +228,7 @@ For Raspberry Pi deployment, see the [Raspberry Pi Deployment](#raspberry-pi-dep
 
 ### Automatic Posting
 
-If `INTERVAL` is set in the `.env` file (in minutes), the bot will automatically fetch deftech vacancies at the specified interval. It will only post to the admin when **new vacancies are discovered**. If no new vacancies are found, it will simply log the check without posting anything. 
+If `INTERVAL` is set in the `.env` file (in minutes), the bot will automatically fetch deftech vacancies at the specified interval. It will only post to the admin when **new vacancies are discovered**. If `PUBLIC_CHAT_ID` is set, the same new vacancies are also posted to that Telegram public/channel (without admin action buttons). If no new vacancies are found, it will simply log the check without posting anything. 
 
 **New Feature**: Automatic postings now include common action buttons (Hide all, Get saved, etc.) for immediate interaction without needing to send additional commands. The `/get_saved_visible` command can still be used for manual fetching of all visible jobs.
 

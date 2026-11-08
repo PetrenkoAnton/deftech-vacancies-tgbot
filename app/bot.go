@@ -150,6 +150,7 @@ type Bot struct {
 	httpClient          *http.Client
 	db                  *sql.DB
 	adminID             string
+	publicChatID        int64
 	deftechURL          string
 	limit               int
 	companiesPerMessage int
@@ -158,7 +159,7 @@ type Bot struct {
 }
 
 // New creates a new bot instance with dependency injection
-func New(token string, adminID string, intervalStr string, dbName string, deftechURL string, limit int, companiesPerMessage int, version string, buildVersion string) (*Bot, error) {
+func New(token string, adminID string, intervalStr string, publicChatIDStr string, dbName string, deftechURL string, limit int, companiesPerMessage int, version string, buildVersion string) (*Bot, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -199,6 +200,14 @@ func New(token string, adminID string, intervalStr string, dbName string, deftec
 	keyboardBuilder := &DefaultKeyboardBuilder{}
 	messageService := &DefaultMessageService{keyboardBuilder: keyboardBuilder}
 
+	var publicChatID int64
+	if publicChatIDStr != "" {
+		publicChatID, err = strconv.ParseInt(strings.TrimSpace(publicChatIDStr), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid PUBLIC_CHAT_ID: %w", err)
+		}
+	}
+
 	bot := &Bot{
 		telebot:             b,
 		messageFormatter:    messageFormatter,
@@ -210,6 +219,7 @@ func New(token string, adminID string, intervalStr string, dbName string, deftec
 		httpClient:          httpClient,
 		db:                  db,
 		adminID:             adminID,
+		publicChatID:        publicChatID,
 		deftechURL:          deftechURL,
 		limit:               limit,
 		companiesPerMessage: companiesPerMessage,
@@ -861,7 +871,55 @@ func (b *Bot) postDeftechVacancies() error {
 	}
 
 	log.Printf("Posted %d new vacancies", len(newVacancyInfos))
+
+	if err := b.postNewVacanciesToPublic(newVacancyInfos); err != nil {
+		log.Printf("Error posting new vacancies to public chat: %v", err)
+	}
+
 	return nil
+}
+
+func (b *Bot) formatPublicVacanciesMessage(vacancies []VacancyInfo) string {
+	var message strings.Builder
+	message.WriteString("**New vacancies:**\n\n")
+
+	for i, vacancyInfo := range vacancies {
+		company := vacancyInfo.Company
+		if company == "" {
+			company = "-"
+		}
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company))
+	}
+
+	return message.String()
+}
+
+func (b *Bot) postNewVacanciesToPublic(vacancies []VacancyInfo) error {
+	if b.publicChatID == 0 {
+		return nil
+	}
+	if len(vacancies) == 0 {
+		return nil
+	}
+
+	chat := &telebot.Chat{ID: b.publicChatID}
+	message := b.formatPublicVacanciesMessage(vacancies)
+
+	var err error
+	maxRetries := 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		_, err = b.telebot.Send(chat, message, telebot.ModeMarkdown, telebot.NoPreview, telebot.Silent)
+		if err == nil {
+			log.Printf("Posted %d new vacancies to public chat %d", len(vacancies), b.publicChatID)
+			return nil
+		}
+		log.Printf("Attempt %d failed to send new vacancies to public chat: %v", attempt, err)
+		if attempt < maxRetries {
+			time.Sleep(time.Duration(attempt) * 5 * time.Second)
+		}
+	}
+
+	return fmt.Errorf("error sending new vacancies to public chat after %d attempts: %w", maxRetries, err)
 }
 
 // handleStart handles the /start command
@@ -1231,7 +1289,15 @@ func (b *Bot) handleFetchNewest(c telebot.Context) error {
 		message.WriteString(b.formatVacancyInfoMessage(i, vacancyInfo, id, hidden, c.Bot().Me.Username))
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.keyboardBuilder.GetCommandKeyboardWithHideAll(), telebot.Silent)
+	if err := c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.keyboardBuilder.GetCommandKeyboardWithHideAll(), telebot.Silent); err != nil {
+		return err
+	}
+
+	if err := b.postNewVacanciesToPublic(newVacancyInfos); err != nil {
+		log.Printf("Error posting new vacancies to public chat: %v", err)
+	}
+
+	return nil
 }
 
 // handleFetchLatest handles the /fetch_latest command

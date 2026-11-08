@@ -40,6 +40,12 @@ func main() {
 		log.Fatal("INTERVAL environment variable is not set")
 	}
 
+	// Get public chat ID from environment variable (optional)
+	publicChatID := os.Getenv("PUBLIC_CHAT_ID")
+	if publicChatID == "" {
+		log.Println("PUBLIC_CHAT_ID is not set, new vacancies will not be posted to a public chat")
+	}
+
 	// Get deftech URL from environment variable (required)
 	deftechURL := os.Getenv("DEFTECH_URL")
 	if deftechURL == "" {
@@ -85,7 +91,7 @@ func main() {
 		logVersion = "unknown"
 	}
 	log.Printf("Initializing Telegram bot (build: %s) →", logVersion)
-	telegramBot, err := bot.New(botToken, adminID, intervalStr, dbName, deftechURL, limit, companiesPerMessage, version, buildVersion)
+	telegramBot, err := bot.New(botToken, adminID, intervalStr, publicChatID, dbName, deftechURL, limit, companiesPerMessage, version, buildVersion)
 	if err != nil {
 		log.Fatalf("Failed to initialize bot: %v", err)
 	}
