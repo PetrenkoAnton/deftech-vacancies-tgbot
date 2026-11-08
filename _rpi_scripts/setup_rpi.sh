@@ -1,22 +1,24 @@
 #!/bin/bash
+set -euo pipefail
 
 cd "$(dirname "$0")"
 source ../.prod.env
 
-# Script to set up Raspberry Pi for the bot: logrotate and systemd service
+: "${PI_KEY:?PI_KEY is not set}"
+: "${PI_USER:?PI_USER is not set}"
+: "${PI_HOST:?PI_HOST is not set}"
+: "${PI_ROOT_PATH:?PI_ROOT_PATH is not set}"
+: "${PI_BINARY:?PI_BINARY is not set}"
+: "${PI_LOG_FILE:?PI_LOG_FILE is not set}"
 
-# Print status message
+SSH=(ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST")
+SCP=(scp -i "$PI_KEY")
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
 echo "Setting up Raspberry Pi for deftech-tgbot..."
 
-# Step 1: Set up logrotate
-echo "Setting up logrotate..."
-scp -i "$PI_KEY" ../logrotate.conf "$PI_USER@$PI_HOST":/tmp/logrotate.conf
-ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST" "sudo mv /tmp/logrotate.conf /etc/logrotate.d/deftech-tgbot && sudo chown root:root /etc/logrotate.d/deftech-tgbot"
-echo "Logrotate configured."
-
-# Step 2: Set up systemd service
-echo "Setting up systemd service..."
-cat > /tmp/deftech-tgbot.service << EOF
+cat > "$tmp/deftech-tgbot.service" << EOF
 [Unit]
 Description=Deftech Vacancies Telegram Bot
 After=network.target
@@ -36,27 +38,52 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-scp -i "$PI_KEY" /tmp/deftech-tgbot.service "$PI_USER@$PI_HOST":/tmp/
-ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST" "sudo mv /tmp/deftech-tgbot.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable deftech-tgbot && chmod +x $PI_ROOT_PATH/$PI_BINARY"
-echo "Systemd service installed and enabled."
+cat > "$tmp/deftech-tgbot-restart.service" << EOF
+[Unit]
+Description=Restart deftech-tgbot
+After=network.target
 
-# Step 3: Set up systemd timer for periodic restart every 2 hours
-echo "Setting up systemd timer for periodic restart..."
-cat > /tmp/deftech-tgbot.timer << EOF
+[Service]
+Type=oneshot
+ExecStart=/bin/systemctl restart deftech-tgbot
+EOF
+
+cat > "$tmp/deftech-tgbot-restart.timer" << EOF
 [Unit]
 Description=Restart deftech-tgbot every 2 hours
 
 [Timer]
 OnBootSec=2h
 OnUnitActiveSec=2h
+Persistent=true
 
 [Install]
 WantedBy=timers.target
 EOF
 
-scp -i "$PI_KEY" /tmp/deftech-tgbot.timer "$PI_USER@$PI_HOST":/tmp/
-ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST" "sudo mv /tmp/deftech-tgbot.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable deftech-tgbot.timer && sudo systemctl start deftech-tgbot.timer"
-echo "Timer configured for auto-restart every 2 hours."
+echo "Copying setup files..."
+"${SCP[@]}" ../logrotate.conf \
+  "$tmp/deftech-tgbot.service" \
+  "$tmp/deftech-tgbot-restart.service" \
+  "$tmp/deftech-tgbot-restart.timer" \
+  "$PI_USER@$PI_HOST:/tmp/"
 
-# Print success message
+echo "Installing logrotate, systemd service, and restart timer..."
+"${SSH[@]}" "\
+set -euo pipefail
+sudo mv /tmp/logrotate.conf /etc/logrotate.d/deftech-tgbot
+sudo chown root:root /etc/logrotate.d/deftech-tgbot
+sudo mv /tmp/deftech-tgbot.service /etc/systemd/system/
+sudo mv /tmp/deftech-tgbot-restart.service /etc/systemd/system/
+sudo mv /tmp/deftech-tgbot-restart.timer /etc/systemd/system/
+chmod +x '$PI_ROOT_PATH/$PI_BINARY' || true
+if systemctl list-unit-files | grep -q '^deftech-tgbot.timer'; then
+  sudo systemctl disable --now deftech-tgbot.timer || true
+  sudo rm -f /etc/systemd/system/deftech-tgbot.timer
+fi
+sudo systemctl daemon-reload
+sudo systemctl enable deftech-tgbot
+sudo systemctl enable --now deftech-tgbot-restart.timer
+"
+
 echo "Raspberry Pi setup complete. The bot will auto-start on reboot and restart every 2 hours."
