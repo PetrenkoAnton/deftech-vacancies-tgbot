@@ -3,19 +3,17 @@
 [![CI](https://github.com/PetrenkoAnton/deftech-vacancies-tgbot/actions/workflows/ci.yml/badge.svg)](https://github.com/PetrenkoAnton/deftech-vacancies-tgbot/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/go-1.24-blue)](https://golang.org/)
 
-A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) (with database persistence) and displays current vacancies from Dwarf Engineering company (without persistence). Features interactive deep links for vacancy and company navigation with automatic message cleanup. Built with SOLID principles and clean architecture.
+A Telegram bot that fetches and manages vacancies from [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) (with database persistence). Features interactive deep links for vacancy and company navigation with automatic message cleanup. Built with SOLID principles and clean architecture.
 
 ## Features
 
 - **Job Sources**:
   - [deftech.dou.ua/jobs](https://deftech.dou.ua/jobs) (with database persistence)
-  - Dwarf Engineering ([dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers) and [djinni.co/jobs/company-dwarf-engineering](https://djinni.co/jobs/company-dwarf-engineering/)) (display only, no persistence)
 
 - **Commands**:
    - `/get_saved_visible` - Get visible saved vacancies only (from database)
    - `/fetch_newest` - Fetch and post only new deftech vacancies (from first 2 pages, saves to database)
    - `/fetch_latest` - Fetch and display latest deftech vacancies (from first 2 pages, no saving)
-   - `/fetch_dwarf_engineering` - Get Dwarf Engineering vacancies (djinni.co listings include views/applies in format: title | views / applies, no saving)
    - `/get_saved_latest` - Get all saved vacancies with hide/show controls
    - `/get_companies` - Show all companies with vacancy counts (company names are clickable deep links)
    - `/hide_all` - Hide all visible vacancies
@@ -219,7 +217,6 @@ For Raspberry Pi deployment, see the [Raspberry Pi Deployment](#raspberry-pi-dep
 - `/get_saved_visible` - Show only visible (non-hidden) saved jobs from database
 - `/fetch_newest` - Fetch and post only new DefTech jobs (from first 2 pages) **with common action buttons**
 - `/fetch_latest` - Fetch and display latest DefTech jobs without saving (from first 2 pages)
-- `/fetch_dwarf_engineering` - Fetch jobs from Dwarf Engineering (PeopleForce + djinni.co)
 - `/get_saved_latest` - Fetch all saved jobs with interactive hide/show links (shows total count of all saved vacancies)
 - `/get_companies` - Show all companies with vacancy counts
 - `/hide_all` - Hide all visible vacancies (admin only)

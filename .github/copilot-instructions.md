@@ -7,7 +7,7 @@
 - **IGNORE SENSITIVE DATA IN .env FILE** - Never view, modify, or reference sensitive data like BOT_TOKEN, ADMIN_ID, or other credentials in the .env file
 
 ## Architecture Overview
-Go-based Telegram bot with SQLite persistence that scrapes job vacancies from deftech.dou.ua and Dwarf Engineering sources (PeopleForce and djinni.co). Built with SOLID principles and clean architecture using dependency injection. The bot uses interface-based design with separated services for maintainability and testability.
+Go-based Telegram bot with SQLite persistence that scrapes job vacancies from deftech.dou.ua. Built with SOLID principles and clean architecture using dependency injection. The bot uses interface-based design with separated services for maintainability and testability.
 
 ## Key Components
 - **main.go**: Environment loading, dependency injection setup, bot initialization, graceful shutdown
@@ -36,7 +36,6 @@ Go-based Telegram bot with SQLite persistence that scrapes job vacancies from de
 - **Telegram API**: `telebot.v3` framework with long poller; handlers registered in `registerHandlers()`
 - **Database**: Repository pattern with SQLite prepared statements; indexes on `created_at` and `company_id`
 - **Web Scraping**: HTTP client with 10s timeout via `VacancyFetcher` interface; parses HTML for job links and company associations
-- **External Sources**: Multiple Dwarf Engineering endpoints combined into single response (PeopleForce HTML, djinni.co HTML with views/applies metadata in "title | views / applies" format)
 - **Dependency Injection**: All services injected via constructor for testability and flexibility
 
 ## Recent Updates

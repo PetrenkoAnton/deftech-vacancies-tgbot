@@ -3,7 +3,6 @@ package bot
 import (
 	"database/sql"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,7 +28,6 @@ const (
 		"/get_saved_visible - Get visible saved vacancies\n\n" +
 		"/fetch_newest - Fetch newest vacancies from deftech.dou.ua\n" +
 		"/fetch_latest - Fetch latest vacancies from deftech.dou.ua\n\n" +
-		"/fetch_dwarf_engineering - Fetch Dwarf Engineering vacancies\n\n" +
 		"/get_companies - Show all companies with vacancy counts\n\n" +
 		"/hide_all - Hide all visible vacancies\n\n" +
 		"/clear_saved - Clear hidden vacancies\n\n" +
@@ -63,14 +61,6 @@ type VacancyInfo struct {
 	Title   string
 	Company string
 	URL     string
-}
-
-// DjinniVacancyInfo represents vacancy information from djinni.co with additional metadata
-type DjinniVacancyInfo struct {
-	Title   string
-	URL     string
-	Views   string
-	Applies string
 }
 
 // XHRResponse represents the response from xhr-load endpoint
@@ -121,8 +111,6 @@ type CompanyWithCount struct {
 // VacancyFetcher handles HTTP operations for fetching vacancies
 type VacancyFetcher interface {
 	FetchJobTitlesFromDeftech() ([]VacancyInfo, error)
-	FetchJobTitles() ([]VacancyInfo, error)
-	FetchJobTitlesFromDjinni() ([]VacancyInfo, []DjinniVacancyInfo, error)
 }
 
 // KeyboardBuilder handles keyboard creation
@@ -266,7 +254,7 @@ func (f *DefaultMessageFormatter) FormatVacancy(index int, title, url, company s
 	}
 
 	return fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n",
-		index+1, title, url, companyText, action, botUsername, prefix, id)
+		index+1, escapeMarkdownLinkText(title), url, companyText, action, botUsername, prefix, id)
 }
 
 func (f *DefaultMessageFormatter) FormatVacancyFromStruct(index int, vacancy Vacancy, companyName string, botUsername string) string {
@@ -282,7 +270,7 @@ func (f *DefaultMessageFormatter) FormatVacancyFromStruct(index int, vacancy Vac
 	}
 
 	return fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n",
-		index+1, vacancy.Title, vacancy.URL, company, action, botUsername, prefix, vacancy.ID)
+		index+1, escapeMarkdownLinkText(vacancy.Title), vacancy.URL, company, action, botUsername, prefix, vacancy.ID)
 }
 
 // SQLiteVacancyRepository implements VacancyRepository
@@ -526,16 +514,6 @@ func (f *DefaultVacancyFetcher) FetchJobTitlesFromDeftech() ([]VacancyInfo, erro
 	return []VacancyInfo{}, nil
 }
 
-func (f *DefaultVacancyFetcher) FetchJobTitles() ([]VacancyInfo, error) {
-	// Implementation would go here - simplified for refactoring
-	return []VacancyInfo{}, nil
-}
-
-func (f *DefaultVacancyFetcher) FetchJobTitlesFromDjinni() ([]VacancyInfo, []DjinniVacancyInfo, error) {
-	// Implementation would go here - simplified for refactoring
-	return []VacancyInfo{}, []DjinniVacancyInfo{}, nil
-}
-
 // DefaultKeyboardBuilder implements KeyboardBuilder
 type DefaultKeyboardBuilder struct{}
 
@@ -546,12 +524,10 @@ func (b *DefaultKeyboardBuilder) GetCommandKeyboard() *telebot.ReplyMarkup {
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
 	btnCompanies := markup.Data("Get companies", "/get_companies")
-	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/fetch_dwarf_engineering")
 	markup.Inline(
 		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
 		markup.Row(btnFetchNewest, btnFetchLatest),
 		markup.Row(btnCompanies),
-		markup.Row(btnDwarf),
 	)
 	return markup
 }
@@ -563,13 +539,11 @@ func (b *DefaultKeyboardBuilder) GetCommandKeyboardWithHideAll() *telebot.ReplyM
 	btnGetSavedLatest := markup.Data("Get saved (latest)", "/get_saved_latest")
 	btnFetchNewest := markup.Data("Fetch newest", "/fetch_newest")
 	btnFetchLatest := markup.Data("Fetch latest", "/fetch_latest")
-	btnDwarf := markup.Data("Fetch Dwarf Engineering", "/fetch_dwarf_engineering")
 	btnCompanies := markup.Data("Get companies", "/get_companies")
 	markup.Inline(
 		markup.Row(btnHideAll),
 		markup.Row(btnGetSavedVisible, btnGetSavedLatest),
 		markup.Row(btnFetchNewest, btnFetchLatest),
-		markup.Row(btnDwarf),
 		markup.Row(btnCompanies),
 	)
 	return markup
@@ -735,9 +709,6 @@ func (b *Bot) registerHandlers() {
 	// Help command handler
 	b.telebot.Handle("/help", b.handleHelp)
 
-	// Get Dwarf Engineering vacancies command handler
-	b.telebot.Handle("/fetch_dwarf_engineering", b.handleGetDwarfEngineering)
-
 	// Get list deftech command handler
 	b.telebot.Handle("/fetch_newest", b.handleFetchNewest)
 
@@ -851,7 +822,7 @@ func (b *Bot) postDeftechVacancies() error {
 				company = fmt.Sprintf("[%s](https://t.me/%s?start=%s_%d)", company, b.telebot.Me.Username, companyPrefix, companyID)
 			}
 		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s | [%s](https://t.me/%s?start=%s_%d)\n", i+1, escapeMarkdownLinkText(vacancyInfo.Title), vacancyInfo.URL, company, action, b.telebot.Me.Username, prefix, id))
 	}
 
 	// Send with retry logic
@@ -888,7 +859,7 @@ func (b *Bot) formatPublicVacanciesMessage(vacancies []VacancyInfo) string {
 		if company == "" {
 			company = "-"
 		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company))
+		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s\n", i+1, escapeMarkdownLinkText(vacancyInfo.Title), vacancyInfo.URL, company))
 	}
 
 	return message.String()
@@ -983,7 +954,7 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			c.Delete()
 		}()
 		// Send status message
-		err = c.Send(fmt.Sprintf("[%s](%s) @ %s is hidden", vacancy.Title, url, company), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
+		err = c.Send(fmt.Sprintf("[%s](%s) @ %s is hidden", escapeMarkdownLinkText(vacancy.Title), url, company), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
 		if err != nil {
 			log.Printf("Error sending hide status message: %v", err)
 			return nil
@@ -1052,7 +1023,7 @@ func (b *Bot) handleStart(c telebot.Context) error {
 			c.Delete()
 		}()
 		// Send status message
-		err = c.Send(fmt.Sprintf("[%s](%s) @ %s is shown", vacancy.Title, url, company), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
+		err = c.Send(fmt.Sprintf("[%s](%s) @ %s is shown", escapeMarkdownLinkText(vacancy.Title), url, company), telebot.ModeMarkdown, telebot.Silent, telebot.NoPreview)
 		if err != nil {
 			log.Printf("Error sending show status message: %v", err)
 			return nil
@@ -1108,56 +1079,6 @@ func (b *Bot) handleHelp(c telebot.Context) error {
 	return c.Send(commandsText, b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
 }
 
-// fetchJobTitles fetches and parses vacancy titles from all careers pages
-func (b *Bot) fetchJobTitles() ([]VacancyInfo, error) {
-	var allVacancies []VacancyInfo
-	seen := make(map[string]bool) // To avoid duplicates
-
-	// Fetch pages 1 and 2
-	pages := []int{1, 2}
-	for _, page := range pages {
-		vacancies, err := b.fetchJobTitlesFromPage(page)
-		if err != nil {
-			log.Printf("Error fetching page %d: %v", page, err)
-			// Continue with other pages even if one fails
-			continue
-		}
-
-		// Add unique vacancy titles
-		for _, job := range vacancies {
-			if !seen[job.Title] {
-				seen[job.Title] = true
-				allVacancies = append(allVacancies, job)
-			}
-		}
-	}
-
-	return allVacancies, nil
-}
-
-// fetchJobTitlesFromPage fetches and parses vacancy titles from a specific page
-func (b *Bot) fetchJobTitlesFromPage(page int) ([]VacancyInfo, error) {
-	url := fmt.Sprintf("https://dwarfengineering.peopleforce.io/careers?page=%d", page)
-
-	resp, err := b.getWithUserAgent(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch page: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	doc, err := html.Parse(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse HTML: %w", err)
-	}
-
-	vacancies := b.findJobTitles(doc)
-	return vacancies, nil
-}
-
 // getWithUserAgent performs a GET request with a User-Agent header
 func (b *Bot) getWithUserAgent(url string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
@@ -1208,38 +1129,6 @@ func collectText(n *html.Node, text *strings.Builder) {
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		collectText(c, text)
 	}
-}
-
-// findJobTitles finds vacancy titles and URLs in the HTML document
-func (b *Bot) findJobTitles(n *html.Node) []VacancyInfo {
-	var vacancies []VacancyInfo
-	if n.Type == html.ElementNode && n.Data == "h4" {
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			if c.Type == html.ElementNode && c.Data == "a" {
-				title := strings.TrimSpace(extractText(c))
-				var url string
-				for _, attr := range c.Attr {
-					if attr.Key == "href" {
-						url = attr.Val
-						// Make URL absolute if it's relative
-						if strings.HasPrefix(url, "/") {
-							url = "https://dwarfengineering.peopleforce.io" + url
-						} else if !strings.HasPrefix(url, "http") {
-							url = "https://dwarfengineering.peopleforce.io/" + url
-						}
-						break
-					}
-				}
-				if title != "" && url != "" {
-					vacancies = append(vacancies, VacancyInfo{Title: title, URL: url})
-				}
-			}
-		}
-	}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		vacancies = append(vacancies, b.findJobTitles(c)...)
-	}
-	return vacancies
 }
 
 // handleFetchNewest handles the /fetch_newest command
@@ -1317,18 +1206,38 @@ func (b *Bot) handleFetchLatest(c telebot.Context) error {
 		return c.Send("No vacancies found.", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
 	}
 
-	// Format and send the list
-	var message strings.Builder
-
-	for i, vacancyInfo := range vacancyInfos {
-		company := vacancyInfo.Company
-		if company == "" {
-			company = "-"
-		}
-		message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s\n", i+1, vacancyInfo.Title, vacancyInfo.URL, company))
+	if len(vacancyInfos) > b.limit {
+		vacancyInfos = vacancyInfos[:b.limit]
 	}
 
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
+	// Send vacancies in chunks to avoid message length limit
+	for i := 0; i < len(vacancyInfos); i += b.companiesPerMessage {
+		end := i + b.companiesPerMessage
+		if end > len(vacancyInfos) {
+			end = len(vacancyInfos)
+		}
+		chunk := vacancyInfos[i:end]
+
+		var message strings.Builder
+		for j, vacancyInfo := range chunk {
+			company := vacancyInfo.Company
+			if company == "" {
+				company = "-"
+			} else if companyID, err := b.companyRepo.GetCompanyIDByName(company); err == nil {
+				company = fmt.Sprintf("[%s](https://t.me/%s?start=%s_%d)", company, c.Bot().Me.Username, companyPrefix, companyID)
+			}
+			message.WriteString(fmt.Sprintf("%d. [%s](%s) @ %s\n", i+j+1, escapeMarkdownLinkText(vacancyInfo.Title), vacancyInfo.URL, company))
+		}
+
+		// Add keyboard only to the last message
+		if end == len(vacancyInfos) {
+			c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
+		} else {
+			c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, telebot.Silent)
+		}
+	}
+
+	return nil
 }
 
 // handleGetSavedVisible handles the /get_saved_visible command
@@ -1425,73 +1334,6 @@ func (b *Bot) handleGetSavedLatest(c telebot.Context) error {
 	}
 
 	return nil
-}
-
-// handleGetDwarfEngineering handles the /fetch_dwarf_engineering command
-func (b *Bot) handleGetDwarfEngineering(c telebot.Context) error {
-	log.Printf("Command /fetch_dwarf_engineering received")
-	// Show loading message
-	c.Send("Fetching Dwarf Engineering vacancies →", telebot.Silent)
-
-	var peopleforceVacancies []VacancyInfo
-	var djinniVacancies []DjinniVacancyInfo
-
-	// Fetch from PeopleForce
-	peopleforceVacanciesRaw, err := b.fetchJobTitles()
-	if err != nil {
-		log.Printf("Error fetching vacancies from https://dwarfengineering.peopleforce.io/careers/: %v", err)
-		// Continue even if one source fails
-	} else {
-		peopleforceVacancies = peopleforceVacanciesRaw
-		log.Printf("Fetched %d vacancies from PeopleForce", len(peopleforceVacancies))
-	}
-
-	// Fetch from djinni.co
-	_, djinniVacanciesRaw, err := b.fetchJobTitlesFromDjinni()
-	if err != nil {
-		log.Printf("Error fetching vacancies from djinni.co: %v", err)
-		// Continue even if one source fails
-	} else {
-		djinniVacancies = djinniVacanciesRaw
-		log.Printf("Fetched %d vacancies from djinni.co", len(djinniVacancies))
-	}
-
-	if len(peopleforceVacancies) == 0 && len(djinniVacancies) == 0 {
-		return c.Send("No vacancies found from any source.", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
-	}
-
-	// Format and send the list
-	var message strings.Builder
-
-	if len(peopleforceVacancies) > 0 {
-		message.WriteString("**[dwarfengineering.peopleforce.io/careers](https://dwarfengineering.peopleforce.io/careers):**\n")
-		for i, vacancy := range peopleforceVacancies {
-			message.WriteString(fmt.Sprintf("%d. [%s](%s)\n", i+1, vacancy.Title, vacancy.URL))
-		}
-		message.WriteString("\n")
-	}
-
-	if len(djinniVacancies) > 0 {
-		message.WriteString("**[djinni.co/jobs/company-dwarf-engineering](https://djinni.co/jobs/company-dwarf-engineering/):**\n")
-		for i, vacancy := range djinniVacancies {
-			// Format with views and applies info after the link
-			statsInfo := ""
-			if vacancy.Views != "" || vacancy.Applies != "" {
-				views := vacancy.Views
-				if views == "" {
-					views = "0"
-				}
-				applies := vacancy.Applies
-				if applies == "" {
-					applies = "0"
-				}
-				statsInfo = fmt.Sprintf(" | %s / %s", views, applies)
-			}
-			message.WriteString(fmt.Sprintf("%d. [%s](%s)%s\n", i+1, vacancy.Title, vacancy.URL, statsInfo))
-		}
-	}
-
-	return c.Send(message.String(), telebot.ModeMarkdown, telebot.NoPreview, b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
 }
 
 // handleClearSaved handles the /clear_saved command
@@ -1641,148 +1483,6 @@ func (b *Bot) handleBackToMenu(c telebot.Context) error {
 	return c.Send("Main menu:", b.keyboardBuilder.GetCommandKeyboard(), telebot.Silent)
 }
 
-// RSSFeed represents the RSS feed structure
-type RSSFeed struct {
-	XMLName xml.Name `xml:"rss"`
-	Channel struct {
-		Items []RSSItem `xml:"item"`
-	} `xml:"channel"`
-}
-
-// RSSItem represents an item in the RSS feed
-type RSSItem struct {
-	Title string `xml:"title"`
-	Link  string `xml:"link"`
-}
-
-// fetchJobTitlesFromDjinni fetches and parses job titles from djinni.co Dwarf Engineering page
-func (b *Bot) fetchJobTitlesFromDjinni() ([]string, []DjinniVacancyInfo, error) {
-	url := "https://djinni.co/jobs/company-dwarf-engineering/"
-
-	resp, err := b.getWithUserAgent(url)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch djinni page: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	doc, err := html.Parse(resp.Body)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse HTML: %w", err)
-	}
-
-	titles, vacancies := b.findJobTitlesFromDjinni(doc)
-	return titles, vacancies, nil
-}
-
-// findJobTitlesFromDjinni finds job titles in the djinni.co HTML document
-func (b *Bot) findJobTitlesFromDjinni(n *html.Node) ([]string, []DjinniVacancyInfo) {
-	var vacancyTitles []string
-	var vacancies []DjinniVacancyInfo
-	var seen = make(map[string]bool)
-
-	var findTitles func(*html.Node)
-	findTitles = func(node *html.Node) {
-		if node.Type == html.ElementNode && node.Data == "div" {
-			// Check if this is a job item
-			for _, attr := range node.Attr {
-				if attr.Key == "id" && strings.HasPrefix(attr.Val, "job-item-") {
-					// Found a job item, extract information
-					vacancy := b.extractDjinniVacancyInfo(node)
-					if vacancy.Title != "" && vacancy.URL != "" && !seen[vacancy.Title] {
-						seen[vacancy.Title] = true
-						vacancyTitles = append(vacancyTitles, vacancy.Title)
-						vacancies = append(vacancies, vacancy)
-					}
-					break
-				}
-			}
-		}
-		for c := node.FirstChild; c != nil; c = c.NextSibling {
-			findTitles(c)
-		}
-	}
-
-	findTitles(n)
-	return vacancyTitles, vacancies
-}
-
-// extractDjinniVacancyInfo extracts vacancy information from a djinni.co job item
-func (b *Bot) extractDjinniVacancyInfo(node *html.Node) DjinniVacancyInfo {
-	vacancy := DjinniVacancyInfo{}
-
-	var extractInfo func(*html.Node)
-	extractInfo = func(n *html.Node) {
-		if n.Type == html.ElementNode {
-			// Extract title and URL from a element
-			if n.Data == "a" {
-				for _, attr := range n.Attr {
-					if attr.Key == "class" && strings.Contains(attr.Val, "job_item__header-link") {
-						// Get URL
-						for _, a := range n.Attr {
-							if a.Key == "href" {
-								vacancy.URL = a.Val
-								if !strings.HasPrefix(vacancy.URL, "http") {
-									vacancy.URL = "https://djinni.co" + vacancy.URL
-								}
-								break
-							}
-						}
-						// Find h2 inside for title
-						var findH2 func(*html.Node)
-						findH2 = func(nn *html.Node) {
-							if nn.Type == html.ElementNode && nn.Data == "h2" {
-								vacancy.Title = strings.TrimSpace(extractText(nn))
-							}
-							for cc := nn.FirstChild; cc != nil; cc = cc.NextSibling {
-								findH2(cc)
-							}
-						}
-						findH2(n)
-						break
-					}
-				}
-			}
-
-			// Extract views and applies from the metadata section
-			if n.Data == "div" {
-				for _, attr := range n.Attr {
-					if attr.Key == "class" && strings.Contains(attr.Val, "text-secondary") {
-						text := strings.TrimSpace(extractText(n))
-						// Split by · to get individual metadata parts
-						parts := strings.Split(text, "·")
-						for _, part := range parts {
-							part = strings.TrimSpace(part)
-							if strings.Contains(part, "переглядів") || strings.Contains(part, "перегляд") {
-								// Extract number before "переглядів" or "перегляд"
-								if idx := strings.Index(part, "перегляд"); idx > 0 {
-									vacancy.Views = strings.TrimSpace(part[:idx])
-								}
-							}
-							if strings.Contains(part, "відгуків") || strings.Contains(part, "відгук") {
-								// Extract number before "відгуків" or "відгук"
-								if idx := strings.Index(part, "відгук"); idx > 0 {
-									vacancy.Applies = strings.TrimSpace(part[:idx])
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			extractInfo(c)
-		}
-	}
-
-	extractInfo(node)
-	return vacancy
-}
-
 // FetchJobTitlesFromDeftech fetches and parses job titles from deftech.dou.ua page with pagination
 func (b *Bot) FetchJobTitlesFromDeftech() ([]VacancyInfo, error) {
 	pageURL := b.deftechURL
@@ -1921,6 +1621,13 @@ func extractText(n *html.Node) string {
 	return text.String()
 }
 
+func escapeMarkdownLinkText(text string) string {
+	text = strings.ReplaceAll(text, `\`, `\\`)
+	text = strings.ReplaceAll(text, "[", `\[`)
+	text = strings.ReplaceAll(text, "]", `\]`)
+	return text
+}
+
 // handleText handles text messages
 func (b *Bot) handleText(c telebot.Context) error {
 	log.Printf("Text message received: %s", c.Text())
@@ -1944,10 +1651,6 @@ func (b *Bot) handleCallback(c telebot.Context) error {
 		return err
 	case "/fetch_latest":
 		err := b.handleFetchLatest(c)
-		c.Respond(&telebot.CallbackResponse{})
-		return err
-	case "/fetch_dwarf_engineering":
-		err := b.handleGetDwarfEngineering(c)
 		c.Respond(&telebot.CallbackResponse{})
 		return err
 	case "/get_saved_latest":
