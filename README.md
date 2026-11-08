@@ -142,7 +142,7 @@ For production deployment, create a `.prod.env` file by copying `.env` and updat
 ### Notes
 - All scripts source the `.env` file for configuration.
 - Ensure SSH key authentication is set up between your local machine and the Raspberry Pi.
-- The `setup_rpi.sh` script configures logrotate for 10 MB log limits (using `logrotate.conf` as template) and sets up a systemd service for auto-start on reboot.
+- The `setup_rpi.sh` script configures logrotate for 10 MB log limits (using `logrotate.conf` as template), sets up a systemd service for auto-start on reboot, and a timer to restart the bot every 2 hours.
 - Logs are written to `deftech-tgbot.log` on the Pi.
 
 For production deployment, create a `.prod.env` file by copying `.env` and updating it with production values (e.g., production BOT_TOKEN, ADMIN_ID, etc.). The deployment scripts will use `.prod.env` if available, otherwise `.env`.
@@ -192,7 +192,7 @@ For production deployment, create a `.prod.env` file by copying `.env` and updat
 ### Notes
 - All scripts source the `.env` file for configuration.
 - Ensure SSH key authentication is set up between your local machine and the Raspberry Pi.
-- The `setup_rpi.sh` script configures logrotate for 10 MB log limits (using `logrotate.conf` as template) and sets up a systemd service for auto-start on reboot.
+- The `setup_rpi.sh` script configures logrotate for 10 MB log limits (using `logrotate.conf` as template), sets up a systemd service for auto-start on reboot, and a timer to restart the bot every 2 hours.
 - Logs are written to `deftech-tgbot.log` on the Pi.
 
 ## Usage

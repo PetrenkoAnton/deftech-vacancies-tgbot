@@ -40,5 +40,23 @@ scp -i "$PI_KEY" /tmp/deftech-tgbot.service "$PI_USER@$PI_HOST":/tmp/
 ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST" "sudo mv /tmp/deftech-tgbot.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable deftech-tgbot && chmod +x $PI_ROOT_PATH/$PI_BINARY"
 echo "Systemd service installed and enabled."
 
+# Step 3: Set up systemd timer for periodic restart every 2 hours
+echo "Setting up systemd timer for periodic restart..."
+cat > /tmp/deftech-tgbot.timer << EOF
+[Unit]
+Description=Restart deftech-tgbot every 2 hours
+
+[Timer]
+OnBootSec=2h
+OnUnitActiveSec=2h
+
+[Install]
+WantedBy=timers.target
+EOF
+
+scp -i "$PI_KEY" /tmp/deftech-tgbot.timer "$PI_USER@$PI_HOST":/tmp/
+ssh -i "$PI_KEY" -q -T "$PI_USER@$PI_HOST" "sudo mv /tmp/deftech-tgbot.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable deftech-tgbot.timer && sudo systemctl start deftech-tgbot.timer"
+echo "Timer configured for auto-restart every 2 hours."
+
 # Print success message
-echo "Raspberry Pi setup complete. The bot will auto-start on reboot."
+echo "Raspberry Pi setup complete. The bot will auto-start on reboot and restart every 2 hours."
